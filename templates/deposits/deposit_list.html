@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}واریزها{% endblock %}
+{% block content %}
+<div class="panel">
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+    <h2 class="panel__title" style="margin:0; border:none; padding:0;">واریزها</h2>
+    <a href="{% url 'deposits:deposit_create' %}" class="btn" style="display:inline-block; width:auto; padding:0.5rem 1rem;">+ ثبت واریز جدید</a>
+  </div>
+
+  {% if deposits %}
+  <table style="width:100%; border-collapse: collapse; font-size: 0.85rem;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--color-border); text-align: right;">
+        <th style="padding: 0.4rem;">تاریخ</th>
+        <th style="padding: 0.4rem;">دهه</th>
+        <th style="padding: 0.4rem;">مبلغ واریزی</th>
+        <th style="padding: 0.4rem;">مبلغ تفاوت</th>
+        <th style="padding: 0.4rem;">شماره سند</th>
+        <th style="padding: 0.4rem;">بانک</th>
+        <th style="padding: 0.4rem;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for deposit in deposits %}
+      <tr style="border-bottom: 1px solid var(--color-border);">
+        <td style="padding: 0.4rem;" class="numeric">{{ deposit.date|date:"Y/m/d" }}</td>
+        <td style="padding: 0.4rem;">{{ deposit.get_decade_display }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ deposit.deposit_amount }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ deposit.difference_amount }}</td>
+        <td style="padding: 0.4rem;">{{ deposit.document_number|default:"—" }}</td>
+        <td style="padding: 0.4rem;">{{ deposit.bank|default:"—" }}</td>
+        <td style="padding: 0.4rem; display:flex; gap:0.75rem;">
+          <a href="{% url 'deposits:deposit_edit' deposit.pk %}">ویرایش</a>
+          <a href="{% url 'deposits:deposit_delete' deposit.pk %}" style="color: var(--color-danger);">حذف</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p style="color: var(--color-ink-muted);">واریزی ثبت نشده است.</p>
+  {% endif %}
+</div>
+{% endblock %}

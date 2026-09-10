@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}فاکتور فروش روزانه — {{ working_day.date|date:"Y/m/d" }}{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <h2 class="panel__title">
+    فاکتور فروش روزانه — <span class="numeric">{{ working_day.date|date:"Y/m/d" }}</span>
+  </h2>
+
+  {% if not all_registered %}
+    <div class="alert alert--warn">
+      {{ missing_numbers|length }} نازل ثبت نشده: {{ missing_numbers|join:", " }}
+      <br>
+      <a href="{% url 'sales:nozzle_entry_next' working_day.date|date:'Y-m-d' %}" class="btn" style="display:inline-block; width:auto; margin-top:0.5rem;">
+        ادامه ثبت نازل‌ها
+      </a>
+    </div>
+  {% else %}
+    <div class="alert alert--success">تمام نازل‌های الزامی برای این روز ثبت شده‌اند.</div>
+  {% endif %}
+
+  <div class="dashboard-columns" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 1.5rem;">
+    <div><div class="form-label">تعداد نازل</div><div class="numeric" style="font-size:1.3rem;">{{ totals.nozzle_count }}</div></div>
+    <div><div class="form-label">مجموع عملکرد</div><div class="numeric" style="font-size:1.3rem;">{{ totals.total_operation }}</div></div>
+    <div><div class="form-label">مجموع تست</div><div class="numeric" style="font-size:1.3rem;">{{ totals.total_test }}</div></div>
+    <div><div class="form-label">مجموع فروش</div><div class="numeric" style="font-size:1.3rem;">{{ totals.total_sales }}</div></div>
+  </div>
+
+  {% if nozzle_sales %}
+  <table style="width:100%; border-collapse: collapse; font-size: 0.9rem;">
+    <thead>
+      <tr style="border-bottom: 2px solid var(--color-border); text-align: right;">
+        <th style="padding: 0.5rem;">نازل</th>
+        <th style="padding: 0.5rem;">محصول</th>
+        <th style="padding: 0.5rem;">کنتور قبلی</th>
+        <th style="padding: 0.5rem;">کنتور جدید</th>
+        <th style="padding: 0.5rem;">عملکرد</th>
+        <th style="padding: 0.5rem;">تست</th>
+        <th style="padding: 0.5rem;">فروش مکانیکی</th>
+        <th style="padding: 0.5rem;">نرخ</th>
+        <th style="padding: 0.5rem;">مبلغ کل</th>
+        <th style="padding: 0.5rem;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for sale in nozzle_sales %}
+      <tr style="border-bottom: 1px solid var(--color-border);">
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.nozzle.number }}</td>
+        <td style="padding: 0.5rem;">{{ sale.nozzle.tank.product.name }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.previous_meter }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.new_meter }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.operation }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.test }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.mechanical_sales }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.sales_rate }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.total_amount }}</td>
+        <td style="padding: 0.5rem;">
+          <a href="{% url 'sales:nozzle_entry' working_day.date|date:'Y-m-d' sale.nozzle.number %}">ویرایش</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <p style="margin-top: 1rem; font-size: 0.8rem;">
+    <a href="{% url 'sales:invoice_list' %}">بازگشت به فهرست فاکتورها</a>
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,379 @@
+/* =====================================================================
+   140 Jahan Pour -- Fuel Station Management App
+   Design tokens: professional accounting-app palette (red/yellow/white),
+   RTL Persian typography. No heavy frameworks -- plain CSS only.
+   ===================================================================== */
+
+:root {
+  /* Color -- deliberately restrained: deep red (not neon) for primary
+     actions/header, warm amber (not saturated yellow) for warning/status,
+     white/near-white surfaces for a calm accounting-ledger feel. */
+  --color-primary: #C62828;
+  --color-primary-dark: #8E1E1E;
+  --color-accent-warn: #F9A825;
+  --color-accent-warn-dark: #C77D0A;
+  --color-bg: #FAFAFA;
+  --color-surface: #FFFFFF;
+  --color-ink: #1F1F1F;
+  --color-ink-muted: #5F5F5F;
+  --color-border: #E3E1DE;
+  --color-success: #2E7D32;
+  --color-danger: #C62828;
+
+  --radius: 8px;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 8px rgba(0, 0, 0, 0.04);
+
+  --font-display: 'Vazirmatn', 'Tahoma', sans-serif;
+  --font-body: 'Vazirmatn', 'Tahoma', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  direction: rtl;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  margin: 0 0 0.5em 0;
+}
+
+a { color: inherit; }
+
+/* Tabular numerals for meter readings/currency -- alignment matters in an
+   accounting UI more than in prose. */
+.numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---------------------------------------------------------------------
+   Header
+   --------------------------------------------------------------------- */
+
+.app-header {
+  background: var(--color-primary);
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.app-header__station {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.app-header__station-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.app-header__station-location {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.app-header__right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* ---------------------------------------------------------------------
+   License badge -- the one signature element: a small gauge-style arc,
+   evoking a fuel/level gauge, used exactly once (here) rather than
+   repeated as decoration elsewhere.
+   --------------------------------------------------------------------- */
+
+.license-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem 0.3rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.license-badge__gauge {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.license-badge--ok .license-badge__gauge circle.fill {
+  stroke: #A5D6A7;
+}
+
+.license-badge--warn {
+  background: rgba(249, 168, 37, 0.25);
+}
+
+.license-badge--warn .license-badge__gauge circle.fill {
+  stroke: var(--color-accent-warn);
+}
+
+/* ---------------------------------------------------------------------
+   Nav strip
+   --------------------------------------------------------------------- */
+
+.app-nav {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.5rem 1.5rem;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.app-nav__link {
+  text-decoration: none;
+  color: var(--color-ink);
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.15s ease;
+}
+
+.app-nav__link:hover {
+  background: var(--color-bg);
+}
+
+.app-nav__link--active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------------
+   Main content / dashboard
+   --------------------------------------------------------------------- */
+
+.app-main {
+  padding: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.alert {
+  border-radius: var(--radius);
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  border: 1px solid transparent;
+}
+
+.alert--warn {
+  background: #FFF8E1;
+  border-color: var(--color-accent-warn);
+  color: #7A4E00;
+}
+
+.alert--info {
+  background: #FDECEA;
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.alert--error {
+  background: #FDECEA;
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+}
+
+.alert--success {
+  background: #E8F5E9;
+  border-color: var(--color-success);
+  color: #1B5E20;
+}
+
+.dashboard-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+@media (max-width: 720px) {
+  .dashboard-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 1rem 1.1rem;
+}
+
+.panel__title {
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tank-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tank-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.tank-list__item:hover,
+.tank-list__item.is-selected {
+  border-color: var(--color-primary);
+  background: #FDECEA;
+}
+
+.nozzle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  gap: 0.4rem;
+}
+
+.nozzle-grid__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--color-ink);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.nozzle-grid__item:hover {
+  border-color: var(--color-accent-warn-dark);
+  background: #FFF8E1;
+}
+
+/* ---------------------------------------------------------------------
+   Forms (login, license renewal)
+   --------------------------------------------------------------------- */
+
+.auth-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  padding: 1rem;
+}
+
+.auth-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 2rem;
+  width: 100%;
+  max-width: 360px;
+}
+
+.auth-card__header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+  margin-bottom: 0.35rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  background: var(--color-bg);
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.15);
+}
+
+.form-error {
+  color: var(--color-danger);
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
+
+.btn {
+  display: inline-block;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--color-primary);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btn:hover {
+  background: var(--color-primary-dark);
+}
+
+.btn:focus-visible,
+a:focus-visible,
+.tank-list__item:focus-visible,
+.nozzle-grid__item:focus-visible {
+  outline: 3px solid var(--color-accent-warn);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}

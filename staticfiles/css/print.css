@@ -1,0 +1,131 @@
+/* =====================================================================
+   Print stylesheet for all printable reports (WeasyPrint / A4 portrait).
+   Loaded only by printing/base_print.html -- never by on-screen templates.
+   ===================================================================== */
+
+@page {
+  size: A4 portrait;
+  margin: 15mm 15mm 18mm 15mm;
+
+  @bottom-center {
+    content: "صفحه " counter(page) " از " counter(pages);
+    font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+    font-size: 9px;
+    color: #666;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  direction: rtl;
+}
+
+body {
+  margin: 0;
+  font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+  font-size: 10.5px;
+  color: #1a1a1a;
+  direction: rtl;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ---------------------------------------------------------------------
+   Report header: station identity + report title/period, required on
+   every printed report per Architecture v3.
+   --------------------------------------------------------------------- */
+
+.print-header {
+  border-bottom: 2px solid #8E1E1E;
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.print-header__station-name {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 2px 0;
+}
+
+.print-header__station-location {
+  font-size: 10px;
+  color: #555;
+  margin: 0;
+}
+
+.print-header__report-title {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.print-header__report-period {
+  text-align: left;
+  font-size: 9.5px;
+  color: #555;
+  margin-top: 2px;
+}
+
+/* ---------------------------------------------------------------------
+   Tables: RTL column order (matches on-screen ordering), header repeats
+   on every page when a table spans multiple pages, rows avoid being
+   split across a page break where technically possible.
+   --------------------------------------------------------------------- */
+
+table.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5px;
+}
+
+table.print-table thead {
+  display: table-header-group; /* repeats table header on each printed page */
+}
+
+table.print-table tr {
+  page-break-inside: avoid;
+}
+
+table.print-table th,
+table.print-table td {
+  border: 1px solid #ccc;
+  padding: 3px 5px;
+  text-align: right;
+}
+
+table.print-table thead th {
+  background: #F3E9E9;
+  font-weight: 700;
+  border-bottom: 1.5px solid #8E1E1E;
+}
+
+table.print-table tbody tr:nth-child(even) {
+  background: #FAFAFA;
+}
+
+table.print-table tfoot td {
+  font-weight: 700;
+  border-top: 2px solid #8E1E1E;
+  background: #F3E9E9;
+}
+
+.print-empty-note {
+  font-size: 10px;
+  color: #777;
+  margin-top: 10px;
+}
+
+.print-footer-note {
+  margin-top: 16px;
+  font-size: 8.5px;
+  color: #888;
+}

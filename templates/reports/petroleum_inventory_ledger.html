@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}دفتر موجودی و عملیات — روزانه{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <h2 class="panel__title">دفتر موجودی و عملیات — روزانه</h2>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+    <div>
+      <label class="form-label">انتخاب مخزن</label>
+      <select class="form-input" onchange="window.location = '?tank_id=' + this.value + '&start_date={{ start_date|date:"Y-m-d" }}&end_date={{ end_date|date:"Y-m-d" }}'">
+        <option value="">— انتخاب کنید —</option>
+        {% for tank in tanks %}
+          <option value="{{ tank.id }}" {% if selected_tank.id == tank.id %}selected{% endif %}>
+            {{ tank.product.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="form-label">از تاریخ</label>
+      <input type="date" class="form-input" value="{{ start_date|date:'Y-m-d' }}"
+             onchange="window.location = '?tank_id={{ selected_tank.id|default:'' }}&start_date=' + this.value + '&end_date={{ end_date|date:"Y-m-d" }}'">
+    </div>
+    <div>
+      <label class="form-label">تا تاریخ</label>
+      <input type="date" class="form-input" value="{{ end_date|date:'Y-m-d' }}"
+             onchange="window.location = '?tank_id={{ selected_tank.id|default:'' }}&start_date={{ start_date|date:"Y-m-d" }}&end_date=' + this.value">
+    </div>
+  </div>
+
+  {% if selected_tank %}
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+      <h3 style="font-size: 0.95rem; margin:0;">{{ selected_tank.product.name }}</h3>
+      {% if rows %}
+      <a href="{% url 'printing:petroleum_ledger_print' selected_tank.id %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}"
+         target="_blank" class="btn" style="display:inline-block; width:auto; padding:0.4rem 0.9rem; font-size:0.85rem;">
+        چاپ / PDF
+      </a>
+      {% endif %}
+    </div>
+
+    {% if rows %}
+    <table style="width:100%; border-collapse: collapse; font-size: 0.8rem; overflow-x: auto;">
+      <thead>
+        <tr style="border-bottom: 2px solid var(--color-border); text-align: right;">
+          <th style="padding: 0.4rem;">تاریخ</th>
+          <th style="padding: 0.4rem;">خرید روز</th>
+          <th style="padding: 0.4rem;">بازگشت تست</th>
+          <th style="padding: 0.4rem;">فروش روز</th>
+          <th style="padding: 0.4rem;">موجودی کل</th>
+          <th style="padding: 0.4rem;">موجودی نظری</th>
+          <th style="padding: 0.4rem;">کسری</th>
+          <th style="padding: 0.4rem;">اضافه</th>
+          <th style="padding: 0.4rem;">جمع کل ۱</th>
+          <th style="padding: 0.4rem;">جمع کل ۲</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr style="border-bottom: 1px solid var(--color-border);">
+          <td style="padding: 0.4rem;" class="numeric">{{ row.date|date:"Y/m/d" }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ row.daily_purchase }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ row.test_return }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ row.daily_sales }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ row.total_inventory|default:"—" }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ row.theoretical_inventory|default:"—" }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ row.shortage|default:"—" }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ row.overage|default:"—" }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ row.daily_total_1|default:"—" }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ row.daily_total_2|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p style="color: var(--color-ink-muted);">در بازه انتخاب‌شده اطلاعاتی یافت نشد.</p>
+    {% endif %}
+  {% else %}
+    <p style="color: var(--color-ink-muted);">برای مشاهده گزارش، مخزنی را انتخاب کنید.</p>
+  {% endif %}
+</div>
+{% endblock %}

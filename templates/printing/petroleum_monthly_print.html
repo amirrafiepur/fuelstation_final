@@ -1,0 +1,39 @@
+{% extends "printing/base_print.html" %}
+{% block title %}گزارش ماهانه مخازن{% endblock %}
+{% block report_title %}گزارش ماهانه مخازن{% endblock %}
+{% block report_period %}سال {{ year }} — ماه {{ month }}{% endblock %}
+
+{% block report_body %}
+{% if rows %}
+<table class="print-table">
+  <thead>
+    <tr>
+      <th>محصول</th>
+      <th>موجودی ابتدای دوره</th>
+      <th>کل خرید</th>
+      <th>کل بازگشت تست</th>
+      <th>کل فروش</th>
+      <th>کل کسری</th>
+      <th>کل اضافه</th>
+      <th>موجودی انتهای دوره</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.tank.product.name }}</td>
+      <td class="numeric">{{ row.beginning_inventory }}</td>
+      <td class="numeric">{{ row.total_purchase }}</td>
+      <td class="numeric">{{ row.total_test_return }}</td>
+      <td class="numeric">{{ row.total_sales }}</td>
+      <td class="numeric">{{ row.total_shortage }}</td>
+      <td class="numeric">{{ row.total_overage }}</td>
+      <td class="numeric">{{ row.ending_inventory|default:"—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <p class="print-empty-note">در این ماه اطلاعاتی یافت نشد.</p>
+{% endif %}
+{% endblock %}

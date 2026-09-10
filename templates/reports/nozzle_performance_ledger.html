@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}گزارش کارکرد نازل‌ها — دفتر روزانه{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <h2 class="panel__title">گزارش کارکرد نازل‌ها — دفتر روزانه</h2>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+    <div>
+      <label class="form-label">انتخاب نازل</label>
+      <select class="form-input" onchange="window.location = '?nozzle_id=' + this.value + '&start_date={{ start_date|date:"Y-m-d" }}&end_date={{ end_date|date:"Y-m-d" }}'">
+        <option value="">— انتخاب کنید —</option>
+        {% for nozzle in nozzles %}
+          <option value="{{ nozzle.id }}" {% if selected_nozzle.id == nozzle.id %}selected{% endif %}>
+            نازل {{ nozzle.number }} ({{ nozzle.tank.product.name }})
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="form-label">از تاریخ</label>
+      <input type="date" class="form-input" value="{{ start_date|date:'Y-m-d' }}"
+             onchange="window.location = '?nozzle_id={{ selected_nozzle.id|default:'' }}&start_date=' + this.value + '&end_date={{ end_date|date:"Y-m-d" }}'">
+    </div>
+    <div>
+      <label class="form-label">تا تاریخ</label>
+      <input type="date" class="form-input" value="{{ end_date|date:'Y-m-d' }}"
+             onchange="window.location = '?nozzle_id={{ selected_nozzle.id|default:'' }}&start_date={{ start_date|date:"Y-m-d" }}&end_date=' + this.value">
+    </div>
+  </div>
+
+  {% if selected_nozzle %}
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+      <h3 style="font-size: 0.95rem; margin:0;">نازل {{ selected_nozzle.number }} ({{ selected_nozzle.tank.product.name }})</h3>
+      {% if rows %}
+      <a href="{% url 'printing:nozzle_ledger_print' selected_nozzle.id %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}"
+         target="_blank" class="btn" style="display:inline-block; width:auto; padding:0.4rem 0.9rem; font-size:0.85rem;">
+        چاپ / PDF
+      </a>
+      {% endif %}
+    </div>
+
+    {% if rows %}
+    <table style="width:100%; border-collapse: collapse; font-size: 0.85rem;">
+      <thead>
+        <tr style="border-bottom: 2px solid var(--color-border); text-align: right;">
+          <th style="padding: 0.4rem;">تاریخ</th>
+          <th style="padding: 0.4rem;">عملکرد</th>
+          <th style="padding: 0.4rem;">فروش مکانیکی</th>
+          <th style="padding: 0.4rem;">نرخ</th>
+          <th style="padding: 0.4rem;">مبلغ کل</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr style="border-bottom: 1px solid var(--color-border);">
+          <td style="padding: 0.4rem;" class="numeric">{{ row.date|date:"Y/m/d" }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ row.operation }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ row.mechanical_sales }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ row.sales_rate }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ row.total_amount }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p style="color: var(--color-ink-muted);">در بازه انتخاب‌شده اطلاعاتی یافت نشد.</p>
+    {% endif %}
+  {% else %}
+    <p style="color: var(--color-ink-muted);">برای مشاهده گزارش، نازلی را انتخاب کنید.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}داشبورد — ۱۴۰ جهانی پور{% endblock %}
+
+{% block license_badge %}
+  {% if license_valid %}
+    <span class="license-badge {% if license_warning %}license-badge--warn{% else %}license-badge--ok{% endif %}">
+      <svg class="license-badge__gauge" viewBox="0 0 20 20">
+        <circle cx="10" cy="10" r="8" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="3"/>
+        <circle class="fill" cx="10" cy="10" r="8" fill="none" stroke-width="3"
+                stroke-dasharray="50.24" stroke-dashoffset="0" transform="rotate(-90 10 10)"/>
+      </svg>
+      {% if license_warning %}
+        {{ license_days_remaining }} روز تا پایان اعتبار لایسنس
+      {% else %}
+        لایسنس معتبر است
+      {% endif %}
+    </span>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+{% if license_warning %}
+  <div class="alert alert--warn">
+    هشدار لایسنس: لایسنس این برنامه تا {{ license_days_remaining }} روز آینده معتبر است.
+    لطفاً برای تمدید لایسنس اقدام کنید.
+  </div>
+{% endif %}
+
+{% if incomplete_days_count > 0 %}
+  <div class="alert alert--info">
+    {{ incomplete_days_count }} روز کاری ناقص وجود دارد. لطفاً از تاریخ
+    <strong class="numeric">{{ next_required_date|date:"Y/m/d" }}</strong> ادامه دهید.
+  </div>
+{% endif %}
+
+<div class="dashboard-columns">
+  <div class="panel">
+    <h2 class="panel__title">کارکرد مخازن</h2>
+    <ul class="tank-list">
+      {% for tank in tanks %}
+        <li class="tank-list__item" data-tank-id="{{ tank.id }}" data-product="{{ tank.product.name }}" tabindex="0">
+          <span>{{ tank.product.name }}</span>
+          <span style="display:flex; align-items:center; gap:0.75rem;">
+            {% if next_required_date %}
+            <a href="{% url 'inventory:day_detail' next_required_date|date:'Y-m-d' %}"
+               style="font-size: 0.75rem; color: var(--color-primary);"
+               onclick="event.stopPropagation();">موجودی</a>
+            {% endif %}
+            <span style="color: var(--color-ink-muted); font-size: 0.8rem;">مخزن</span>
+          </span>
+        </li>
+      {% empty %}
+        <li style="color: var(--color-ink-muted);">مخزنی ثبت نشده است.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="panel">
+    <h2 class="panel__title">کارکرد نازل‌ها</h2>
+    <div class="nozzle-grid" id="nozzle-grid">
+      {% for nozzle in nozzles %}
+        <a href="{% if next_required_date %}{% url 'sales:nozzle_entry' next_required_date|date:'Y-m-d' nozzle.number %}{% else %}{% url 'sales:invoice_list' %}{% endif %}" class="nozzle-grid__item" data-product="{{ nozzle.tank.product.name }}">{{ nozzle.number }}</a>
+      {% empty %}
+        <span style="color: var(--color-ink-muted);">نازلی ثبت نشده است.</span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+  // Lightweight, framework-free filtering: clicking a tank narrows the
+  // nozzle grid to that tank's product. No page reload, no JS framework.
+  document.querySelectorAll('.tank-list__item').forEach(function (item) {
+    item.addEventListener('click', function () {
+      var product = item.getAttribute('data-product');
+      var alreadySelected = item.classList.contains('is-selected');
+
+      document.querySelectorAll('.tank-list__item').forEach(function (i) {
+        i.classList.remove('is-selected');
+      });
+
+      var nozzleItems = document.querySelectorAll('#nozzle-grid .nozzle-grid__item');
+      if (alreadySelected) {
+        nozzleItems.forEach(function (n) { n.style.display = ''; });
+        return;
+      }
+
+      item.classList.add('is-selected');
+      nozzleItems.forEach(function (n) {
+        n.style.display = (n.getAttribute('data-product') === product) ? '' : 'none';
+      });
+    });
+    item.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        item.click();
+      }
+    });
+  });
+</script>
+{% endblock %}

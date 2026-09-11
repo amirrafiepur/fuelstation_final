@@ -21,6 +21,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 
 
 HOST = "127.0.0.1"
@@ -169,12 +170,17 @@ def _run_gui(port: int) -> int:
     window.setWindowTitle(WINDOW_TITLE)
     window.resize(1200, 760)
     window.setMinimumSize(900, 600)
-
+    class CustomWebEnginePage(QWebEnginePage):
+        def createWindow(self, window_type):
+            return self
     view = QWebEngineView()
+    page = CustomWebEnginePage(view)
+    view.setPage(page)
     view.setUrl(QUrl(f"http://{HOST}:{port}/"))
+    view.settings().setAttribute(
+    QWebEngineSettings.WebAttribute.PdfViewerEnabled,True)
     window.setCentralWidget(view)
     window.show()
-
     return app.exec()
 
 

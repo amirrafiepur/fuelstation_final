@@ -12,7 +12,7 @@ from pathlib import Path
 
 # The packaged build must never run with DEBUG on: it would leak tracebacks
 # to the local QWebEngineView and slow down template rendering.
-DEBUG = False
+DEBUG = True
 
 # Still local-only -- the Waitress server only ever binds to 127.0.0.1.
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']

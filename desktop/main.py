@@ -162,7 +162,7 @@ def _make_print_download_dir() -> Path:
     return directory
 
 
-def _connect_print_download_handler(profile, download_dir: Path) -> None:
+def _connect_print_download_handler(view, download_dir: Path) -> None:
     """
     Save any PDF the WebEngine profile tries to download to a private temp
     directory and hand it to the OS's default PDF viewer, instead of
@@ -170,10 +170,37 @@ def _connect_print_download_handler(profile, download_dir: Path) -> None:
     inline. Non-PDF downloads are declined -- this app has no other
     intentional download links, and silently accepting arbitrary
     downloads is not part of the approved print workflow.
+
+    A print link is a target="_blank" navigation that this app's
+    SameWindowPage redirects onto the same page (see _run_gui). Qt still
+    runs that redirected navigation through its normal load sequence
+    before downloadRequested fires, and that in-flight navigation clears
+    the current document -- QUrl.toString() keeps reporting the report
+    page's address, but the rendered DOM underneath it is emptied out.
+    view.reload() cannot fix this: Qt's "current entry" to reload is the
+    print URL itself (the navigation that was in flight when the download
+    took over), not the report page, so reloading only re-triggers the
+    same download in a loop. What is reliable is the page's own
+    urlChanged signal: it fires for every *committed* navigation, and a
+    redirected-to-download print link never actually commits one (its
+    load reports ok=False), so the last URL that signal ever reports is
+    genuinely the last real page the operator was looking at. Recording
+    that and navigating back to it once the download settles restores
+    the exact page the operator was on, driven by the download's own
+    finished-state signal rather than a fixed delay.
     """
     from PySide6.QtCore import QUrl
     from PySide6.QtGui import QDesktopServices
     from PySide6.QtWebEngineCore import QWebEngineDownloadRequest
+
+    last_page_url = {"value": view.url()}
+
+    def on_url_changed(url: "QUrl") -> None:
+        last_page_url["value"] = url
+
+    view.urlChanged.connect(on_url_changed)
+
+    profile = view.page().profile()
 
     def on_download_requested(download: "QWebEngineDownloadRequest") -> None:
         is_pdf = (download.mimeType() or "").lower() == "application/pdf"
@@ -184,14 +211,20 @@ def _connect_print_download_handler(profile, download_dir: Path) -> None:
 
         download.setDownloadDirectory(str(download_dir))
         download.setDownloadFileName(suggested_name)
+        return_url = last_page_url["value"]
+
+        settled_states = (
+            QWebEngineDownloadRequest.DownloadState.DownloadCompleted,
+            QWebEngineDownloadRequest.DownloadState.DownloadInterrupted,
+            QWebEngineDownloadRequest.DownloadState.DownloadCancelled,
+        )
 
         def on_state_changed(state) -> None:
             if state == QWebEngineDownloadRequest.DownloadState.DownloadCompleted:
                 saved_path = download_dir / suggested_name
                 QDesktopServices.openUrl(QUrl.fromLocalFile(str(saved_path)))
-            # DownloadInterrupted/DownloadCancelled: nothing extra to do --
-            # the operator's original report page remains on screen since
-            # this download path never navigates the main view away from it.
+            if state in settled_states and return_url.isValid():
+                view.setUrl(return_url)
 
         download.stateChanged.connect(on_state_changed)
         download.accept()
@@ -247,7 +280,7 @@ def _run_gui(port: int) -> int:
     view.setPage(SameWindowPage(view))
 
     print_download_dir = _make_print_download_dir()
-    _connect_print_download_handler(view.page().profile(), print_download_dir)
+    _connect_print_download_handler(view, print_download_dir)
 
     view.setUrl(QUrl(f"http://{HOST}:{port}/"))
     window.setCentralWidget(view)

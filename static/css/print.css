@@ -3,6 +3,36 @@
    Loaded only by printing/base_print.html -- never by on-screen templates.
    ===================================================================== */
 
+/* Vazirmatn (SIL OFL 1.1) bundled locally in fonts/vazirmatn/ -- the
+   target machine runs fully offline (no internet during normal use), so
+   the font must not depend on a CDN. See fonts/vazirmatn/OFL.txt for the
+   license. Only the weights this stylesheet actually uses are bundled:
+   400 for body text, 500 for the page-footer counter, 700 for headings
+   and table headers/totals. */
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('../fonts/vazirmatn/Vazirmatn-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('../fonts/vazirmatn/Vazirmatn-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('../fonts/vazirmatn/Vazirmatn-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 @page {
   size: A4 portrait;
   margin: 15mm 15mm 18mm 15mm;
@@ -10,6 +40,7 @@
   @bottom-center {
     content: "صفحه " counter(page) " از " counter(pages);
     font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+    font-weight: 500;
     font-size: 9px;
     color: #666;
   }
@@ -27,6 +58,7 @@ body {
   margin: 0;
   font-family: 'Vazirmatn', 'Tahoma', sans-serif;
   font-size: 10.5px;
+  font-weight: 400;
   color: #1a1a1a;
   direction: rtl;
 }

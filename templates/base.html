@@ -44,6 +44,7 @@
         <form method="post" action="{% url 'core:set_global_date' %}" id="global-date-form" hidden>
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <input type="hidden" name="section" value="{{ request.resolver_match.app_name }}">
           <input type="hidden" name="date" id="global-date-value" value="{{ global_date|date:'Y-m-d' }}">
         </form>
       </div>

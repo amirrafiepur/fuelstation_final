@@ -18,7 +18,35 @@
       <span class="app-header__station-location">خراسان رضوی، مشهد</span>
     </div>
     <div class="app-header__right">
-      {% block license_badge %}{% endblock %}
+      <form method="post" action="{% url 'core:set_global_date' %}" class="global-date" id="global-date-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <label class="global-date__display" for="global-date-input">
+          <svg class="global-date__icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M3 8H17" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M6.5 2.5V5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M13.5 2.5V5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span class="numeric">{{ global_date|date:"Y/m/d" }}</span>
+        </label>
+        <input type="date" id="global-date-input" name="date" value="{{ global_date|date:'Y-m-d' }}"
+               class="global-date__input" onchange="document.getElementById('global-date-form').submit();">
+      </form>
+      {% if license_valid %}
+        <span class="license-badge {% if license_warning %}license-badge--warn{% else %}license-badge--ok{% endif %}">
+          <svg class="license-badge__gauge" viewBox="0 0 20 20">
+            <circle cx="10" cy="10" r="8" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="3"/>
+            <circle class="fill" cx="10" cy="10" r="8" fill="none" stroke-width="3"
+                    stroke-dasharray="50.24" stroke-dashoffset="0" transform="rotate(-90 10 10)"/>
+          </svg>
+          {% if license_warning %}
+            {{ license_days_remaining }} روز تا پایان اعتبار لایسنس
+          {% else %}
+            لایسنس تا {{ license_days_remaining }} روز دیگر معتبر است
+          {% endif %}
+        </span>
+      {% endif %}
       <form method="post" action="{% url 'accounts:logout' %}" style="margin:0;">
         {% csrf_token %}
         <button type="submit" class="app-nav__link" style="background:rgba(255,255,255,0.15); border:none; color:#fff; cursor:pointer;">خروج</button>

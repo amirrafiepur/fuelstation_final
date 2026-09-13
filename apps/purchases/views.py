@@ -35,10 +35,12 @@ def choose_working_date(request):
     system as sales (rule 10) -- this deliberately reuses
     workday_services.can_enter_date() rather than introducing a separate
     date system, and reuses sales' WorkingDateForm since the shape is
-    identical (a single date field).
+    identical (a single date field). Prefers the operator's global
+    working date over the chronology default so switching sections
+    doesn't reset it -- see workday_services.get_global_date().
     """
     next_required = workday_services.get_next_required_date()
-    initial = {"date": next_required} if next_required else {}
+    initial = {"date": workday_services.get_global_date(request)}
 
     if request.method == "POST":
         form = WorkingDateForm(request.POST)
@@ -48,6 +50,7 @@ def choose_working_date(request):
             if not allowed:
                 form.add_error("date", reason)
             else:
+                workday_services.set_global_date(request, date)
                 return redirect("purchases:invoice_list_for_day", date=date.isoformat())
     else:
         form = WorkingDateForm(initial=initial)
@@ -73,6 +76,8 @@ def invoice_list_for_day(request, date):
     if not allowed:
         messages.error(request, reason)
         return redirect("purchases:choose_date")
+
+    workday_services.set_global_date(request, working_day.date)
 
     tanks = Tank.objects.select_related("product").order_by("product__name")
     tank_rows = []

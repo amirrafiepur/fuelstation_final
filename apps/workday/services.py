@@ -122,3 +122,46 @@ def last_day_of_month(any_date: datetime.date) -> datetime.date:
     3rd-decade boundary) to correctly handle 28/29/30/31-day months."""
     last_day_num = calendar.monthrange(any_date.year, any_date.month)[1]
     return any_date.replace(day=last_day_num)
+
+
+# ---------------------------------------------------------------------
+# Global date context
+#
+# The header date selector lets the operator pick one working date that
+# stays in effect across sales/purchases/inventory as they navigate --
+# without it, each app's own choose_working_date defaults back to
+# get_next_required_date() every time, so switching sections silently
+# resets whatever date the operator was just looking at.
+#
+# Stored in the session (not the DB): this is a per-session UI
+# convenience, not accounting data, and the app is single-operator with
+# one session per run -- there is nothing to share across users/machines
+# here. Session storage also means it plays no part in chronology
+# enforcement itself; can_enter_date() and get_incomplete_days() are
+# completely unaffected by it.
+# ---------------------------------------------------------------------
+
+GLOBAL_DATE_SESSION_KEY = "global_working_date"
+
+
+def get_global_date(request) -> datetime.date:
+    """
+    The operator's current global working date. Falls back to the next
+    chronologically-required date, or today if every required day is
+    already complete, whenever nothing has been explicitly selected yet
+    this session.
+    """
+    raw = request.session.get(GLOBAL_DATE_SESSION_KEY)
+    if raw:
+        try:
+            return datetime.date.fromisoformat(raw)
+        except ValueError:
+            pass  # fall through to the default below
+
+    return get_next_required_date() or get_today()
+
+
+def set_global_date(request, date: datetime.date) -> None:
+    """Persist the operator's chosen date as the session-wide default for
+    sales/purchases/inventory until they pick a different one."""
+    request.session[GLOBAL_DATE_SESSION_KEY] = date.isoformat()

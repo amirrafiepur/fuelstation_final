@@ -31,9 +31,11 @@ def _parse_date(date_str: str) -> datetime.date:
 @login_required
 def choose_working_date(request):
     """Entry point for "مخازن" in the nav. Same chronology reuse as sales
-    and purchases -- no separate date system."""
+    and purchases -- no separate date system. Prefers the operator's
+    global working date over the chronology default so switching
+    sections doesn't reset it -- see workday_services.get_global_date()."""
     next_required = workday_services.get_next_required_date()
-    initial = {"date": next_required} if next_required else {}
+    initial = {"date": workday_services.get_global_date(request)}
 
     if request.method == "POST":
         form = WorkingDateForm(request.POST)
@@ -43,6 +45,7 @@ def choose_working_date(request):
             if not allowed:
                 form.add_error("date", reason)
             else:
+                workday_services.set_global_date(request, date)
                 return redirect("inventory:day_detail", date=date.isoformat())
     else:
         form = WorkingDateForm(initial=initial)
@@ -75,6 +78,8 @@ def day_detail(request, date):
     if not allowed:
         messages.error(request, reason)
         return redirect("inventory:choose_date")
+
+    workday_services.set_global_date(request, working_day.date)
 
     accounting_start = workday_services.get_accounting_start_date()
     is_first_accounting_month_day1 = (

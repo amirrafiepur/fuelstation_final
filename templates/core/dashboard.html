@@ -1,23 +1,6 @@
 {% extends "base.html" %}
 {% block title %}داشبورد — ۱۴۰ جهانی پور{% endblock %}
 
-{% block license_badge %}
-  {% if license_valid %}
-    <span class="license-badge {% if license_warning %}license-badge--warn{% else %}license-badge--ok{% endif %}">
-      <svg class="license-badge__gauge" viewBox="0 0 20 20">
-        <circle cx="10" cy="10" r="8" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="3"/>
-        <circle class="fill" cx="10" cy="10" r="8" fill="none" stroke-width="3"
-                stroke-dasharray="50.24" stroke-dashoffset="0" transform="rotate(-90 10 10)"/>
-      </svg>
-      {% if license_warning %}
-        {{ license_days_remaining }} روز تا پایان اعتبار لایسنس
-      {% else %}
-        لایسنس تا {{ license_days_remaining }} روز دیگر معتبر است
-      {% endif %}
-    </span>
-  {% endif %}
-{% endblock %}
-
 {% block content %}
 
 {% if license_warning %}

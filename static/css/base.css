@@ -96,6 +96,53 @@ a { color: inherit; }
 }
 
 /* ---------------------------------------------------------------------
+   Global date selector -- the visible text and the native date input
+   are stacked in the same spot; the input is fully transparent but
+   still receives the click, so opening the OS/browser's own date picker
+   needs no custom JS calendar widget (consistent with the project's
+   "no heavy JS" rule) while still looking like a single clickable date.
+   --------------------------------------------------------------------- */
+
+.global-date {
+  position: relative;
+  display: inline-flex;
+  margin: 0;
+}
+
+.global-date__display {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.global-date__display:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.global-date__icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.global-date__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+/* ---------------------------------------------------------------------
    License badge -- the one signature element: a small gauge-style arc,
    evoking a fuel/level gauge, used exactly once (here) rather than
    repeated as decoration elsewhere.

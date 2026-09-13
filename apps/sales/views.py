@@ -34,13 +34,14 @@ def _parse_date(date_str: str) -> datetime.date:
 @login_required
 def choose_working_date(request):
     """
-    Entry point for "فروش" in the nav. Defaults to the next required date
-    per chronology (the earliest incomplete day), but lets the operator
-    confirm or pick a different in-scope date -- e.g. to review/edit an
-    already-complete day.
+    Entry point for "فروش" in the nav. Prefers the operator's current
+    global working date (set via the header selector) over the
+    chronology default, so switching sections doesn't silently reset
+    whatever date they were just looking at; falls back to the next
+    required date if no global date has been set yet this session.
     """
     next_required = workday_services.get_next_required_date()
-    initial = {"date": next_required} if next_required else {}
+    initial = {"date": workday_services.get_global_date(request)}
 
     if request.method == "POST":
         form = WorkingDateForm(request.POST)
@@ -50,6 +51,7 @@ def choose_working_date(request):
             if not allowed:
                 form.add_error("date", reason)
             else:
+                workday_services.set_global_date(request, date)
                 return redirect(reverse("sales:invoice_detail", args=[date.isoformat()]))
     else:
         form = WorkingDateForm(initial=initial)
@@ -76,6 +78,8 @@ def invoice_detail(request, date):
     if not allowed:
         messages.error(request, reason)
         return redirect("sales:choose_date")
+
+    workday_services.set_global_date(request, working_day.date)
 
     invoice = SalesInvoice.objects.filter(working_day=working_day).first()
     nozzle_sales = (
@@ -111,6 +115,8 @@ def nozzle_entry(request, date, nozzle_number=None):
     if not allowed:
         messages.error(request, reason)
         return redirect("sales:choose_date")
+
+    workday_services.set_global_date(request, working_day.date)
 
     all_registered, missing_numbers = sales_services.validate_all_nozzles_registered(working_day)
 

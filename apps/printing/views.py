@@ -10,6 +10,7 @@ is pure orchestration: build context -> render template -> convert to PDF.
 """
 
 import datetime
+from pathlib import Path
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
@@ -36,9 +37,9 @@ def _render_pdf_response(template_name: str, context: dict, filename: str) -> Ht
     from django.conf import settings
 
     html_string = render_to_string(template_name, context)
-    static_dir = settings.STATICFILES_DIRS[0] if settings.STATICFILES_DIRS else settings.BASE_DIR
+    static_dir = Path(settings.STATICFILES_DIRS[0]) if settings.STATICFILES_DIRS else Path(settings.BASE_DIR)
     pdf_bytes = weasyprint.HTML(
-        string=html_string, base_url=f"file://{static_dir}/"
+        string=html_string, base_url=static_dir.as_uri() + "/"
     ).write_pdf()
 
     response = HttpResponse(pdf_bytes, content_type="application/pdf")

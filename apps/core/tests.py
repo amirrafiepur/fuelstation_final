@@ -52,7 +52,7 @@ class DashboardSmokeTests(TestCase):
     def test_dashboard_shows_license_valid_badge(self):
         self.client.login(username="op1", password="testpass123")
         resp = self.client.get("/")
-        self.assertContains(resp, "لایسنس معتبر است")
+        self.assertContains(resp, "لایسنس تا 365 روز دیگر معتبر است")
 
     def test_anonymous_user_redirected_to_login(self):
         resp = self.client.get("/")

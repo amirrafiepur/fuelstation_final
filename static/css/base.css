@@ -96,11 +96,15 @@ a { color: inherit; }
 }
 
 /* ---------------------------------------------------------------------
-   Global date selector -- the visible text and the native date input
-   are stacked in the same spot; the input is fully transparent but
-   still receives the click, so opening the OS/browser's own date picker
-   needs no custom JS calendar widget (consistent with the project's
-   "no heavy JS" rule) while still looking like a single clickable date.
+   Global date selector -- a small self-contained calendar popup built
+   from plain DOM elements (buttons/divs), not QWebEngineView's native
+   input[type=date] picker. That native picker is part of Chromium's
+   separate browser-UI layer, which QtWebEngine does not fully
+   replicate, so clicking it inside the PySide6 shell silently did
+   nothing (confirmed: the same class of gap as the earlier in-view PDF
+   viewer issue). Rendering the calendar as ordinary web content avoids
+   depending on that layer entirely, while staying free of any JS
+   framework or CDN dependency, consistent with the rest of the project.
    --------------------------------------------------------------------- */
 
 .global-date {
@@ -114,9 +118,12 @@ a { color: inherit; }
   align-items: center;
   gap: 0.4rem;
   background: rgba(255, 255, 255, 0.12);
+  border: none;
   border-radius: 999px;
   padding: 0.3rem 0.8rem;
   font-size: 0.8rem;
+  font-family: inherit;
+  color: inherit;
   cursor: pointer;
   white-space: nowrap;
 }
@@ -131,15 +138,79 @@ a { color: inherit; }
   flex-shrink: 0;
 }
 
-.global-date__input {
+.global-date__panel {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 20;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card), 0 4px 16px rgba(0, 0, 0, 0.18);
+  padding: 0.75rem;
+  width: 15.5rem;
+}
+
+.global-date__panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.global-date__nav {
+  background: none;
   border: none;
-  padding: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.global-date__nav:hover {
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
+.global-date__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--color-ink-muted);
+  margin-bottom: 0.25rem;
+}
+
+.global-date__days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.global-date__day {
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.global-date__day:hover {
+  background: var(--color-bg);
+}
+
+.global-date__day.is-selected {
+  background: var(--color-primary);
+  color: #fff;
 }
 
 /* ---------------------------------------------------------------------

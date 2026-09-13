@@ -18,21 +18,129 @@
       <span class="app-header__station-location">خراسان رضوی، مشهد</span>
     </div>
     <div class="app-header__right">
-      <form method="post" action="{% url 'core:set_global_date' %}" class="global-date" id="global-date-form">
-        {% csrf_token %}
-        <input type="hidden" name="next" value="{{ request.get_full_path }}">
-        <label class="global-date__display" for="global-date-input">
+      <div class="global-date" id="global-date-widget">
+        <button type="button" class="global-date__display" id="global-date-toggle">
           <svg class="global-date__icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" stroke-width="1.5"/>
             <path d="M3 8H17" stroke="currentColor" stroke-width="1.5"/>
             <path d="M6.5 2.5V5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             <path d="M13.5 2.5V5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-          <span class="numeric">{{ global_date|date:"Y/m/d" }}</span>
-        </label>
-        <input type="date" id="global-date-input" name="date" value="{{ global_date|date:'Y-m-d' }}"
-               class="global-date__input" onchange="document.getElementById('global-date-form').submit();">
-      </form>
+          <span class="numeric" id="global-date-label">{{ global_date|date:"Y/m/d" }}</span>
+        </button>
+
+        <div class="global-date__panel" id="global-date-panel" hidden>
+          <div class="global-date__panel-header">
+            <button type="button" class="global-date__nav" id="global-date-prev" aria-label="ماه قبل">&#8250;</button>
+            <span class="global-date__panel-title" id="global-date-title"></span>
+            <button type="button" class="global-date__nav" id="global-date-next" aria-label="ماه بعد">&#8249;</button>
+          </div>
+          <div class="global-date__weekdays">
+            <span>ش</span><span>ی</span><span>د</span><span>س</span><span>چ</span><span>پ</span><span>ج</span>
+          </div>
+          <div class="global-date__days" id="global-date-days"></div>
+        </div>
+
+        <form method="post" action="{% url 'core:set_global_date' %}" id="global-date-form" hidden>
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <input type="hidden" name="date" id="global-date-value" value="{{ global_date|date:'Y-m-d' }}">
+        </form>
+      </div>
+
+      <script>
+        (function () {
+          var initialDate = "{{ global_date|date:'Y-m-d' }}";
+          var widget = document.getElementById('global-date-widget');
+          var toggle = document.getElementById('global-date-toggle');
+          var panel = document.getElementById('global-date-panel');
+          var title = document.getElementById('global-date-title');
+          var daysEl = document.getElementById('global-date-days');
+          var prevBtn = document.getElementById('global-date-prev');
+          var nextBtn = document.getElementById('global-date-next');
+          var form = document.getElementById('global-date-form');
+          var valueInput = document.getElementById('global-date-value');
+
+          var parts = initialDate.split('-').map(Number);
+          var selectedYear = parts[0], selectedMonth = parts[1] - 1, selectedDay = parts[2];
+          var viewYear = selectedYear, viewMonth = selectedMonth;
+
+          var MONTH_NAMES = ['ژانویه', 'فوریه', 'مارس', 'آوریل', 'مه', 'ژوئن',
+                              'ژوئیه', 'اوت', 'سپتامبر', 'اکتبر', 'نوامبر', 'دسامبر'];
+
+          function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+          function render() {
+            title.textContent = MONTH_NAMES[viewMonth] + ' ' + viewYear;
+            daysEl.innerHTML = '';
+
+            var firstOfMonth = new Date(viewYear, viewMonth, 1);
+            // JS getDay(): 0=Sunday..6=Saturday. Header above is ش ی د س چ پ ج
+            // (Sat..Fri), so shift so Saturday lands in column 0.
+            var leadingBlanks = (firstOfMonth.getDay() + 1) % 7;
+            var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+            for (var i = 0; i < leadingBlanks; i++) {
+              var blank = document.createElement('span');
+              daysEl.appendChild(blank);
+            }
+
+            for (var d = 1; d <= daysInMonth; d++) {
+              (function (day) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = day;
+                btn.className = 'global-date__day';
+                if (day === selectedDay && viewMonth === selectedMonth && viewYear === selectedYear) {
+                  btn.classList.add('is-selected');
+                }
+                btn.addEventListener('click', function () {
+                  selectedYear = viewYear;
+                  selectedMonth = viewMonth;
+                  selectedDay = day;
+                  var iso = selectedYear + '-' + pad(selectedMonth + 1) + '-' + pad(selectedDay);
+                  valueInput.value = iso;
+                  form.hidden = false;
+                  form.submit();
+                });
+                daysEl.appendChild(btn);
+              })(d);
+            }
+          }
+
+          toggle.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var isOpen = !panel.hidden;
+            panel.hidden = isOpen;
+            if (!isOpen) {
+              viewYear = selectedYear;
+              viewMonth = selectedMonth;
+              render();
+            }
+          });
+
+          prevBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            viewMonth -= 1;
+            if (viewMonth < 0) { viewMonth = 11; viewYear -= 1; }
+            render();
+          });
+
+          nextBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            viewMonth += 1;
+            if (viewMonth > 11) { viewMonth = 0; viewYear += 1; }
+            render();
+          });
+
+          panel.addEventListener('click', function (e) { e.stopPropagation(); });
+
+          document.addEventListener('click', function () {
+            panel.hidden = true;
+          });
+        })();
+      </script>
+
       {% if license_valid %}
         <span class="license-badge {% if license_warning %}license-badge--warn{% else %}license-badge--ok{% endif %}">
           <svg class="license-badge__gauge" viewBox="0 0 20 20">

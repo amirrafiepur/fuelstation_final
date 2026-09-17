@@ -30,7 +30,7 @@ class SealHttpTests(TestCase):
         resp = self.client.post("/seals/new/", {
             "nozzle": self.nozzle.id,
             "section": NozzleSeal.FLAG_DOOR_1,
-            "date": "2026-08-01",
+            "date": "1405/05/10",
             "seal_number": "SN-001",
         })
         self.assertEqual(resp.status_code, 302)
@@ -43,11 +43,11 @@ class SealHttpTests(TestCase):
         dates are all independently stored -- no daily uniqueness."""
         self.client.post("/seals/new/", {
             "nozzle": self.nozzle.id, "section": NozzleSeal.FLAG_DOOR_1,
-            "date": "2026-08-01", "seal_number": "SN-001",
+            "date": "1405/05/10", "seal_number": "SN-001",
         })
         self.client.post("/seals/new/", {
             "nozzle": self.nozzle.id, "section": NozzleSeal.FLAG_DOOR_1,
-            "date": "2026-08-01", "seal_number": "SN-002",
+            "date": "1405/05/10", "seal_number": "SN-002",
         })
         self.assertEqual(NozzleSeal.objects.filter(nozzle=self.nozzle).count(), 2)
 
@@ -58,7 +58,7 @@ class SealHttpTests(TestCase):
         )
         resp = self.client.post(f"/seals/{seal.pk}/edit/", {
             "nozzle": self.nozzle.id, "section": NozzleSeal.PUMP_DOOR_1,
-            "date": "2026-08-01", "seal_number": "NEW-001",
+            "date": "1405/05/10", "seal_number": "NEW-001",
         })
         self.assertEqual(resp.status_code, 302)
         seal.refresh_from_db()

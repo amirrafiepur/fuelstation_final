@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load jalali_tags %}
 {% block title %}فهرست فاکتورهای فروش{% endblock %}
 {% block content %}
 <div class="panel">
@@ -24,7 +25,7 @@
       <tr style="border-bottom: 1px solid var(--color-border); cursor:pointer;"
           onclick="window.location='{% url "sales:invoice_detail" row.working_day.date|date:"Y-m-d" %}'">
         <td style="padding: 0.5rem;" class="numeric">{{ forloop.counter }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ row.working_day.date|date:"Y/m/d" }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ row.working_day.date|jalali }}</td>
         <td style="padding: 0.5rem;" class="numeric">{{ row.invoice.entry_time|date:"H:i" }}</td>
         <td style="padding: 0.5rem;">{{ row.invoice.operator }}</td>
         <td style="padding: 0.5rem;" class="numeric">{{ row.nozzle_count }}</td>

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load jalali_tags %}
 {% block title %}پلمپ‌ها{% endblock %}
 {% block content %}
 <div class="panel">
@@ -22,7 +23,7 @@
     <tbody>
       {% for seal in seals %}
       <tr style="border-bottom: 1px solid var(--color-border);">
-        <td style="padding: 0.4rem;" class="numeric">{{ seal.date|date:"Y/m/d" }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ seal.date|jalali }}</td>
         <td style="padding: 0.4rem;" class="numeric">{{ seal.nozzle.number }}</td>
         <td style="padding: 0.4rem;">{{ seal.nozzle.tank.product.name }}</td>
         <td style="padding: 0.4rem;">{{ seal.get_section_display }}</td>

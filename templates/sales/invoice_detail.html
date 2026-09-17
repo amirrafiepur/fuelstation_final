@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% block title %}فاکتور فروش روزانه — {{ working_day.date|date:"Y/m/d" }}{% endblock %}
+{% load jalali_tags %}
+{% block title %}فاکتور فروش روزانه — {{ working_day.date|jalali }}{% endblock %}
 {% block content %}
 
 <div class="panel">
   <h2 class="panel__title">
-    فاکتور فروش روزانه — <span class="numeric">{{ working_day.date|date:"Y/m/d" }}</span>
+    فاکتور فروش روزانه — <span class="numeric">{{ working_day.date|jalali }}</span>
   </h2>
 
   {% if not all_registered %}

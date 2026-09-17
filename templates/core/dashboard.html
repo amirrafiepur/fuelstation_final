@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load jalali_tags %}
 {% block title %}داشبورد — ۱۴۰ جهانی پور{% endblock %}
 
 {% block content %}
@@ -13,7 +14,7 @@
 {% if incomplete_days_count > 0 %}
   <div class="alert alert--info">
     {{ incomplete_days_count }} روز کاری ناقص وجود دارد. لطفاً از تاریخ
-    <strong class="numeric">{{ next_required_date|date:"Y/m/d" }}</strong> ادامه دهید.
+    <strong class="numeric">{{ next_required_date|jalali }}</strong> ادامه دهید.
   </div>
 {% endif %}
 

@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% load jalali_tags %}
 {% block title %}حذف پلمپ{% endblock %}
 {% block content %}
 <div class="panel" style="max-width: 480px; margin: 0 auto;">
   <h2 class="panel__title">حذف پلمپ</h2>
 
   <div class="alert alert--info">
-    آیا از حذف پلمپ نازل {{ seal.nozzle.number }} ({{ seal.get_section_display }} — {{ seal.date|date:"Y/m/d" }} — شماره {{ seal.seal_number }}) اطمینان دارید؟
+    آیا از حذف پلمپ نازل {{ seal.nozzle.number }} ({{ seal.get_section_display }} — {{ seal.date|jalali }} — شماره {{ seal.seal_number }}) اطمینان دارید؟
     این عملیات قابل بازگشت نیست.
   </div>
 

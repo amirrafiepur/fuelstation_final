@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% load jalali_tags %}
 {% block title %}حذف واریز{% endblock %}
 {% block content %}
 <div class="panel" style="max-width: 480px; margin: 0 auto;">
   <h2 class="panel__title">حذف واریز</h2>
 
   <div class="alert alert--info">
-    آیا از حذف واریز {{ deposit.date|date:"Y/m/d" }} به مبلغ {{ deposit.deposit_amount }} اطمینان دارید؟
+    آیا از حذف واریز {{ deposit.date|jalali }} به مبلغ {{ deposit.deposit_amount }} اطمینان دارید؟
     این عملیات قابل بازگشت نیست.
   </div>
 

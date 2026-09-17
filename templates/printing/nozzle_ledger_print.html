@@ -1,9 +1,10 @@
 {% extends "printing/base_print.html" %}
+{% load jalali_tags %}
 {% block title %}گزارش کارکرد نازل {{ nozzle.number }}{% endblock %}
 {% block report_title %}گزارش کارکرد نازل — دفتر روزانه{% endblock %}
 {% block report_period %}
   نازل {{ nozzle.number }} ({{ nozzle.tank.product.name }}) —
-  از {{ start_date|date:"Y/m/d" }} تا {{ end_date|date:"Y/m/d" }}
+  از {{ start_date|jalali }} تا {{ end_date|jalali }}
 {% endblock %}
 
 {% block report_body %}
@@ -21,7 +22,7 @@
   <tbody>
     {% for row in rows %}
     <tr>
-      <td class="numeric">{{ row.date|date:"Y/m/d" }}</td>
+      <td class="numeric">{{ row.date|jalali }}</td>
       <td class="numeric">{{ row.operation }}</td>
       <td class="numeric">{{ row.mechanical_sales }}</td>
       <td class="numeric">{{ row.sales_rate }}</td>

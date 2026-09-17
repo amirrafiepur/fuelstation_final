@@ -1,4 +1,5 @@
 {% load static %}
+{% load jalali_tags %}
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -26,7 +27,7 @@
             <path d="M6.5 2.5V5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             <path d="M13.5 2.5V5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-          <span class="numeric" id="global-date-label">{{ global_date|date:"Y/m/d" }}</span>
+          <span class="numeric" id="global-date-label">{{ global_date|jalali }}</span>
         </button>
 
         <div class="global-date__panel" id="global-date-panel" hidden>
@@ -49,89 +50,41 @@
         </form>
       </div>
 
+      <script src="{% static 'js/jalali.js' %}"></script>
       <script>
         (function () {
-          var initialDate = "{{ global_date|date:'Y-m-d' }}";
           var widget = document.getElementById('global-date-widget');
           var toggle = document.getElementById('global-date-toggle');
           var panel = document.getElementById('global-date-panel');
-          var title = document.getElementById('global-date-title');
-          var daysEl = document.getElementById('global-date-days');
-          var prevBtn = document.getElementById('global-date-prev');
-          var nextBtn = document.getElementById('global-date-next');
+          var label = document.getElementById('global-date-label');
           var form = document.getElementById('global-date-form');
           var valueInput = document.getElementById('global-date-value');
 
-          var parts = initialDate.split('-').map(Number);
-          var selectedYear = parts[0], selectedMonth = parts[1] - 1, selectedDay = parts[2];
-          var viewYear = selectedYear, viewMonth = selectedMonth;
-
-          var MONTH_NAMES = ['ژانویه', 'فوریه', 'مارس', 'آوریل', 'مه', 'ژوئن',
-                              'ژوئیه', 'اوت', 'سپتامبر', 'اکتبر', 'نوامبر', 'دسامبر'];
-
-          function pad(n) { return n < 10 ? '0' + n : '' + n; }
-
-          function render() {
-            title.textContent = MONTH_NAMES[viewMonth] + ' ' + viewYear;
-            daysEl.innerHTML = '';
-
-            var firstOfMonth = new Date(viewYear, viewMonth, 1);
-            // JS getDay(): 0=Sunday..6=Saturday. Header above is ش ی د س چ پ ج
-            // (Sat..Fri), so shift so Saturday lands in column 0.
-            var leadingBlanks = (firstOfMonth.getDay() + 1) % 7;
-            var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-
-            for (var i = 0; i < leadingBlanks; i++) {
-              var blank = document.createElement('span');
-              daysEl.appendChild(blank);
+          // The calendar is built and browsed in Jalali; the value actually
+          // submitted to the server (valueInput) is always the Gregorian
+          // ISO date, so all business logic downstream keeps working with
+          // plain Gregorian dates exactly as before.
+          var calendar = JalaliCalendar.mount({
+            toggle: toggle,
+            panel: panel,
+            title: document.getElementById('global-date-title'),
+            daysEl: document.getElementById('global-date-days'),
+            prevBtn: document.getElementById('global-date-prev'),
+            nextBtn: document.getElementById('global-date-next'),
+            initialIso: valueInput.value,
+            onSelect: function (iso, jalaliStr) {
+              label.textContent = jalaliStr;
+              valueInput.value = iso;
+              form.hidden = false;
+              form.submit();
             }
-
-            for (var d = 1; d <= daysInMonth; d++) {
-              (function (day) {
-                var btn = document.createElement('button');
-                btn.type = 'button';
-                btn.textContent = day;
-                btn.className = 'global-date__day';
-                if (day === selectedDay && viewMonth === selectedMonth && viewYear === selectedYear) {
-                  btn.classList.add('is-selected');
-                }
-                btn.addEventListener('click', function () {
-                  selectedYear = viewYear;
-                  selectedMonth = viewMonth;
-                  selectedDay = day;
-                  var iso = selectedYear + '-' + pad(selectedMonth + 1) + '-' + pad(selectedDay);
-                  valueInput.value = iso;
-                  form.hidden = false;
-                  form.submit();
-                });
-                daysEl.appendChild(btn);
-              })(d);
-            }
-          }
+          });
 
           toggle.addEventListener('click', function (e) {
             e.stopPropagation();
             var isOpen = !panel.hidden;
             panel.hidden = isOpen;
-            if (!isOpen) {
-              viewYear = selectedYear;
-              viewMonth = selectedMonth;
-              render();
-            }
-          });
-
-          prevBtn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            viewMonth -= 1;
-            if (viewMonth < 0) { viewMonth = 11; viewYear -= 1; }
-            render();
-          });
-
-          nextBtn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            viewMonth += 1;
-            if (viewMonth > 11) { viewMonth = 0; viewYear += 1; }
-            render();
+            if (!isOpen) { calendar.resetToSelected(); }
           });
 
           panel.addEventListener('click', function (e) { e.stopPropagation(); });

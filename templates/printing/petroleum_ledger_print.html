@@ -1,9 +1,10 @@
 {% extends "printing/base_print.html" %}
+{% load jalali_tags %}
 {% block title %}دفتر موجودی و عملیات — {{ tank.product.name }}{% endblock %}
 {% block report_title %}دفتر موجودی و عملیات — روزانه{% endblock %}
 {% block report_period %}
   {{ tank.product.name }} —
-  از {{ start_date|date:"Y/m/d" }} تا {{ end_date|date:"Y/m/d" }}
+  از {{ start_date|jalali }} تا {{ end_date|jalali }}
 {% endblock %}
 
 {% block report_body %}
@@ -26,7 +27,7 @@
   <tbody>
     {% for row in rows %}
     <tr>
-      <td class="numeric">{{ row.date|date:"Y/m/d" }}</td>
+      <td class="numeric">{{ row.date|jalali }}</td>
       <td class="numeric">{{ row.daily_purchase }}</td>
       <td class="numeric">{{ row.test_return }}</td>
       <td class="numeric">{{ row.daily_sales }}</td>

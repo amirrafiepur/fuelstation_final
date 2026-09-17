@@ -313,8 +313,10 @@ class PrintingHttpTests(TestCase):
         self.assertGreater(page_count, 1)
 
         # All rows must still be present -- pagination must not drop data.
+        # Dates are now presented in Jalali (2026-08-01 -> 1405/05/10);
+        # the underlying data/pagination logic is unchanged.
         text = _pdf_text(resp.content)
-        self.assertIn("2026/08/01", text.replace("‌", ""))
+        self.assertIn("1405/05/10", text.replace("‌", ""))
 
     # --- Empty-data edge case: no rows should still render a valid PDF ---
 

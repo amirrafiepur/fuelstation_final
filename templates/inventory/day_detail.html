@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% block title %}موجودی مخازن — {{ working_day.date|date:"Y/m/d" }}{% endblock %}
+{% load jalali_tags %}
+{% block title %}موجودی مخازن — {{ working_day.date|jalali }}{% endblock %}
 {% block content %}
 
 <div class="panel">
   <h2 class="panel__title">
-    موجودی مخازن — <span class="numeric">{{ working_day.date|date:"Y/m/d" }}</span>
+    موجودی مخازن — <span class="numeric">{{ working_day.date|jalali }}</span>
   </h2>
 
   {% for row in rows %}

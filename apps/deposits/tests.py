@@ -34,7 +34,7 @@ class DepositHttpTests(TestCase):
 
     def test_create_deposit_first_decade(self):
         resp = self.client.post("/deposits/new/", {
-            "date": "2026-08-05", "year": 2026, "month": 8, "decade": Deposit.FIRST_DECADE,
+            "date": "1405/05/14", "year": 2026, "month": 8, "decade": Deposit.FIRST_DECADE,
             "deposit_amount": "1000000", "difference_amount": "0",
             "document_number": "", "bank": "", "branch": "",
         })
@@ -44,7 +44,7 @@ class DepositHttpTests(TestCase):
 
     def test_create_deposit_third_decade_handles_short_february(self):
         resp = self.client.post("/deposits/new/", {
-            "date": "2026-02-25", "year": 2026, "month": 2, "decade": Deposit.THIRD_DECADE,
+            "date": "1404/12/06", "year": 2026, "month": 2, "decade": Deposit.THIRD_DECADE,
             "deposit_amount": "500000", "difference_amount": "0",
             "document_number": "", "bank": "", "branch": "",
         })
@@ -59,7 +59,7 @@ class DepositHttpTests(TestCase):
             deposit_amount=Decimal("1000000"),
         )
         resp = self.client.post(f"/deposits/{deposit.pk}/edit/", {
-            "date": "2026-08-05", "year": 2026, "month": 8, "decade": Deposit.FIRST_DECADE,
+            "date": "1405/05/14", "year": 2026, "month": 8, "decade": Deposit.FIRST_DECADE,
             "deposit_amount": "1500000", "difference_amount": "0",
             "document_number": "", "bank": "", "branch": "",
         })
@@ -91,7 +91,7 @@ class DepositHttpTests(TestCase):
 
     def test_bank_and_branch_are_optional(self):
         resp = self.client.post("/deposits/new/", {
-            "date": "2026-08-05", "year": 2026, "month": 8, "decade": Deposit.FIRST_DECADE,
+            "date": "1405/05/14", "year": 2026, "month": 8, "decade": Deposit.FIRST_DECADE,
             "deposit_amount": "1000000", "difference_amount": "0",
             "document_number": "", "bank": "", "branch": "",
         })

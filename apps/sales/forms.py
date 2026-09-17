@@ -11,6 +11,8 @@ it can never accidentally become a hard rejection.
 
 from django import forms
 
+from apps.core.jalali import JalaliDateField
+
 from .models import NozzleSale
 
 
@@ -19,10 +21,7 @@ class WorkingDateForm(forms.Form):
     data for. The view is responsible for checking can_enter_date() --
     this form only captures the input."""
 
-    date = forms.DateField(
-        label="تاریخ کاری",
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-input"}),
-    )
+    date = JalaliDateField(label="تاریخ کاری")
 
 
 class NozzleSaleForm(forms.ModelForm):

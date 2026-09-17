@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{% if editing %}ویرایش واریز{% else %}ثبت واریز جدید{% endif %}{% endblock %}
+{% block extra_head %}{{ form.media }}{% endblock %}
 {% block content %}
 <div class="panel" style="max-width: 480px; margin: 0 auto;">
   <h2 class="panel__title">{% if editing %}ویرایش واریز{% else %}ثبت واریز جدید{% endif %}</h2>

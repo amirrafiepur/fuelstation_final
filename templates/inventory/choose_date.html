@@ -1,5 +1,7 @@
 {% extends "base.html" %}
+{% load jalali_tags %}
 {% block title %}انتخاب تاریخ کاری — موجودی مخازن{% endblock %}
+{% block extra_head %}{{ form.media }}{% endblock %}
 {% block content %}
 <div class="panel" style="max-width: 480px; margin: 0 auto;">
   <h2 class="panel__title">انتخاب تاریخ کاری برای ثبت موجودی مخازن</h2>
@@ -7,7 +9,7 @@
   {% if incomplete_days %}
     <div class="alert alert--info">
       {{ incomplete_days|length }} روز ناقص وجود دارد. اولین روز الزامی:
-      <strong class="numeric">{{ next_required_date|date:"Y/m/d" }}</strong>
+      <strong class="numeric">{{ next_required_date|jalali }}</strong>
     </div>
   {% else %}
     <div class="alert alert--success">تمام روزهای کاری تا امروز تکمیل شده‌اند.</div>

@@ -138,6 +138,23 @@ a { color: inherit; }
   flex-shrink: 0;
 }
 
+/* Static "today's date" header section -- same font/sizing as
+   .global-date__display so it reads as part of the same family of
+   header chrome, but with no button affordances (no cursor, no hover
+   state) since it is display-only and never interactive. */
+.today-date {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+  color: inherit;
+  white-space: nowrap;
+}
+
 .global-date__panel {
   position: absolute;
   top: calc(100% + 0.5rem);

@@ -20,6 +20,7 @@ def global_header_context(request):
 
     return {
         "global_date": workday_services.get_global_date(request),
+        "today": workday_services.get_today(),
         "license_valid": lic is not None and lic.is_valid(),
         "license_warning": license_services.should_show_expiry_warning(),
         "license_days_remaining": (

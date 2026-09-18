@@ -19,6 +19,16 @@
       <span class="app-header__station-location">خراسان رضوی، مشهد</span>
     </div>
     <div class="app-header__right">
+      <div class="today-date">
+        <svg class="global-date__icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="4" width="14" height="13" rx="2" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M3 8H17" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M6.5 2.5V5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M13.5 2.5V5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span>تاریخ امروز: <span class="numeric">{{ today|jalali }}</span></span>
+      </div>
+
       <div class="global-date" id="global-date-widget">
         <button type="button" class="global-date__display" id="global-date-toggle">
           <svg class="global-date__icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">

@@ -29,6 +29,10 @@
       <button type="submit" class="btn">ورود</button>
     </form>
 
+    <div style="margin-top: 1rem; text-align: center;">
+      <a href="{% url 'accounts:forgot_password' %}" class="app-nav__link">رمز خود را فراموش کردم</a>
+    </div>
+
     {% if first_run %}
       <div style="margin-top: 1rem; text-align: center;">
         <a href="{% url 'accounts:first_setup' %}" class="app-nav__link">راه‌اندازی اولیه سامانه</a>

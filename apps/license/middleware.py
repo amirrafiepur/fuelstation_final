@@ -15,6 +15,8 @@ EXEMPT_URL_NAMES = {
     "license:renew",
     "accounts:login",
     "accounts:first_setup",
+    "accounts:forgot_password",
+    "accounts:reset_password",
 }
 
 

@@ -36,6 +36,16 @@
         {{ form.password2 }}
         {% for error in form.password2.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
       </div>
+      <div class="form-group">
+        <label class="form-label" for="{{ form.security_question.id_for_label }}">{{ form.security_question.label }}</label>
+        {{ form.security_question }}
+        {% for error in form.security_question.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="{{ form.security_answer.id_for_label }}">{{ form.security_answer.label }}</label>
+        {{ form.security_answer }}
+        {% for error in form.security_answer.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
+      </div>
       <button type="submit" class="btn">ایجاد حساب و شروع لایسنس</button>
     </form>
   </div>

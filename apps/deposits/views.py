@@ -12,6 +12,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.core.jalali import to_jalali
 from apps.workday import services as workday_services
 
 from .forms import DepositForm
@@ -19,13 +20,23 @@ from .models import Deposit
 
 
 def _decade_for_date(date: datetime.date) -> str:
-    """Computed from the date, never stored/duplicated as separate truth
+    """
+    Computed from the date, never stored/duplicated as separate truth
     -- but pre-filled here as a form convenience the operator can still
     override, since the model field itself is the source of truth once
-    saved."""
-    if date.day <= 10:
+    saved.
+
+    The decade (1st/2nd/3rd) is a slice of the operator's JALALI month
+    (Deposit.year/month are also Jalali -- see DepositForm), so the
+    day-of-month used here must be the Jalali day, not the Gregorian
+    one: a Gregorian day-of-month can land in a different third of the
+    month than the corresponding Jalali day (e.g. Gregorian day 25 can
+    fall in the Jalali month's first decade).
+    """
+    jalali_day = to_jalali(date).day
+    if jalali_day <= 10:
         return Deposit.FIRST_DECADE
-    elif date.day <= 20:
+    elif jalali_day <= 20:
         return Deposit.SECOND_DECADE
     return Deposit.THIRD_DECADE
 
@@ -46,10 +57,14 @@ def deposit_create(request):
             return redirect("deposits:deposit_list")
     else:
         today = workday_services.get_today()
+        today_jalali = to_jalali(today)
         form = DepositForm(initial={
             "date": today,
-            "year": today.year,
-            "month": today.month,
+            # year/month are Jalali on this model (see DepositForm/
+            # Deposit.year/month) -- default them from the operator's
+            # current Jalali month, not the Gregorian one.
+            "year": today_jalali.year,
+            "month": today_jalali.month,
             "decade": _decade_for_date(today),
         })
 

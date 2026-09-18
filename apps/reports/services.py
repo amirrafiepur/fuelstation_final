@@ -48,6 +48,13 @@ def nozzle_performance_monthly(nozzle: Nozzle, year: int, month: int):
     Monthly Nozzle Performance Report: one row per nozzle per month,
     showing totals plus beginning/end-of-month meter readings.
 
+    `year`/`month` are the operator-facing JALALI year/month (e.g.
+    1405/06) -- the report period the operator actually selects and
+    reads is a Jalali month, not a Gregorian one. They are converted to
+    a Gregorian [first_day, last_day] range via jalali_month_bounds()
+    for the actual DB query; everything below this point continues to
+    work in plain Gregorian dates exactly as before.
+
     Beginning-of-month meter = the previous month's ending meter for this
     nozzle, determined chronologically from actual NozzleSale records --
     never hardcoded. For the FIRST accounting month specifically, the
@@ -58,13 +65,9 @@ def nozzle_performance_monthly(nozzle: Nozzle, year: int, month: int):
     End-of-month meter = the New Meter of the latest registered
     NozzleSale within the selected period.
     """
-    from datetime import date
-    import calendar
+    from apps.core.jalali import jalali_month_bounds
 
-    from apps.workday import services as workday_services
-
-    first_day = date(year, month, 1)
-    last_day = date(year, month, calendar.monthrange(year, month)[1])
+    first_day, last_day = jalali_month_bounds(year, month)
 
     rows = NozzleSale.objects.filter(
         nozzle=nozzle,
@@ -182,6 +185,10 @@ def petroleum_inventory_monthly(tank: Tank, year: int, month: int):
     """
     Monthly Tank Statement: one row per tank per month.
 
+    `year`/`month` are the operator-facing JALALI year/month, converted
+    to a Gregorian [first_day, last_day] range via jalali_month_bounds()
+    -- see nozzle_performance_monthly()'s docstring above for why.
+
     Beginning Inventory = previous month's ending Actual Inventory for
     this tank, determined chronologically from the latest TankInventory
     row strictly before this period. For the FIRST accounting month (no
@@ -192,14 +199,12 @@ def petroleum_inventory_monthly(tank: Tank, year: int, month: int):
     TankInventory row within the selected period -- never manually
     entered or computed at the monthly level.
     """
-    from datetime import date
-    import calendar
+    from apps.core.jalali import jalali_month_bounds
     from apps.sales import services as sales_services
     from apps.purchases import services as purchase_services
     from apps.workday import services as workday_services
 
-    first_day = date(year, month, 1)
-    last_day = date(year, month, calendar.monthrange(year, month)[1])
+    first_day, last_day = jalali_month_bounds(year, month)
 
     working_days_in_period = DailyWorkingDay.objects.filter(
         date__gte=first_day, date__lte=last_day

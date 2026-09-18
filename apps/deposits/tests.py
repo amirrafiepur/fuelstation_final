@@ -7,8 +7,46 @@ from django.test import TestCase
 from apps.license.models import License
 
 from .models import Deposit
+from .views import _decade_for_date
 
 User = get_user_model()
+
+
+class DecadeForDateTests(TestCase):
+    """
+    _decade_for_date() buckets by the JALALI day-of-month (1-10/11-20/
+    21-end), since Deposit.date is now displayed/entered in Jalali and
+    the decade is a slice of that Jalali month -- a Gregorian
+    day-of-month can land in a different third of the month than the
+    corresponding Jalali day, so this must not be computed from
+    date.day directly.
+    """
+
+    def test_gregorian_day_25_can_fall_in_jalali_first_decade(self):
+        # 2026-02-25 is Jalali 1404/12/06 -- Jalali day 6, first decade.
+        # (Gregorian day-of-month 25 would incorrectly suggest the third
+        # decade if computed the old, Gregorian-day way.)
+        self.assertEqual(_decade_for_date(datetime.date(2026, 2, 25)), Deposit.FIRST_DECADE)
+
+    def test_jalali_day_10_is_first_decade(self):
+        # 2026-09-01 is Jalali 1405/06/10.
+        self.assertEqual(_decade_for_date(datetime.date(2026, 9, 1)), Deposit.FIRST_DECADE)
+
+    def test_jalali_day_11_is_second_decade(self):
+        # 2026-09-02 is Jalali 1405/06/11.
+        self.assertEqual(_decade_for_date(datetime.date(2026, 9, 2)), Deposit.SECOND_DECADE)
+
+    def test_jalali_day_20_is_second_decade(self):
+        # 2026-09-11 is Jalali 1405/06/20.
+        self.assertEqual(_decade_for_date(datetime.date(2026, 9, 11)), Deposit.SECOND_DECADE)
+
+    def test_jalali_day_21_is_third_decade(self):
+        # 2026-09-12 is Jalali 1405/06/21.
+        self.assertEqual(_decade_for_date(datetime.date(2026, 9, 12)), Deposit.THIRD_DECADE)
+
+    def test_jalali_day_23_is_third_decade(self):
+        # 2026-09-14 is Jalali 1405/06/23.
+        self.assertEqual(_decade_for_date(datetime.date(2026, 9, 14)), Deposit.THIRD_DECADE)
 
 
 class DepositHttpTests(TestCase):
@@ -42,7 +80,10 @@ class DepositHttpTests(TestCase):
         deposit = Deposit.objects.get()
         self.assertEqual(deposit.decade, Deposit.FIRST_DECADE)
 
-    def test_create_deposit_third_decade_handles_short_february(self):
+    def test_create_deposit_third_decade(self):
+        # 1404/12/06 is a Jalali-first-decade date; the decade value
+        # itself is operator-submitted (not server-validated against
+        # the date), so this just confirms THIRD_DECADE round-trips.
         resp = self.client.post("/deposits/new/", {
             "date": "1404/12/06", "year": 2026, "month": 2, "decade": Deposit.THIRD_DECADE,
             "deposit_amount": "500000", "difference_amount": "0",

@@ -84,7 +84,7 @@ class PrintingHttpTests(TestCase):
         self.assertTrue(resp.content.startswith(b"%PDF"))
 
     def test_nozzle_monthly_pdf_generates(self):
-        resp = self.client.get("/print/nozzle-monthly/?year=2026&month=8")
+        resp = self.client.get("/print/nozzle-monthly/?year=1405&month=5")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "application/pdf")
         self.assertTrue(resp.content.startswith(b"%PDF"))
@@ -98,7 +98,7 @@ class PrintingHttpTests(TestCase):
         self.assertTrue(resp.content.startswith(b"%PDF"))
 
     def test_petroleum_monthly_pdf_generates(self):
-        resp = self.client.get("/print/petroleum-monthly/?year=2026&month=8")
+        resp = self.client.get("/print/petroleum-monthly/?year=1405&month=5")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "application/pdf")
         self.assertTrue(resp.content.startswith(b"%PDF"))
@@ -142,13 +142,13 @@ class PrintingHttpTests(TestCase):
         from django.template.loader import render_to_string
         from apps.printing import services as printing_services
 
-        context = printing_services.build_petroleum_monthly_context(2026, 8)
+        context = printing_services.build_petroleum_monthly_context(1405, 5)
         html = render_to_string("printing/petroleum_monthly_print.html", context)
         self.assertIn("140 Jahan Pour", html)
         self.assertIn("Razavi Khorasan", html)
         self.assertIn("Mashhad", html)
 
-        resp = self.client.get("/print/petroleum-monthly/?year=2026&month=8")
+        resp = self.client.get("/print/petroleum-monthly/?year=1405&month=5")
         self.assertEqual(resp.status_code, 200)
         self.assertGreater(len(resp.content), 2000)
 
@@ -194,20 +194,20 @@ class PrintingHttpTests(TestCase):
         self.assertIn(str(row["daily_total_2"]), text)
 
     def test_petroleum_monthly_pdf_matches_report_service_values(self):
-        resp = self.client.get("/print/petroleum-monthly/?year=2026&month=8")
+        resp = self.client.get("/print/petroleum-monthly/?year=1405&month=5")
         text = _pdf_text(resp.content)
 
-        service_report = report_services.petroleum_inventory_monthly(self.tank, 2026, 8)
+        service_report = report_services.petroleum_inventory_monthly(self.tank, 1405, 5)
 
         self.assertIn(str(service_report["beginning_inventory"]), text)
         self.assertIn(str(service_report["total_purchase"]), text)
         self.assertIn(str(service_report["ending_inventory"]), text)
 
     def test_nozzle_monthly_pdf_matches_report_service_values(self):
-        resp = self.client.get("/print/nozzle-monthly/?year=2026&month=8")
+        resp = self.client.get("/print/nozzle-monthly/?year=1405&month=5")
         text = _pdf_text(resp.content)
 
-        service_report = report_services.nozzle_performance_monthly(self.nozzle, 2026, 8)
+        service_report = report_services.nozzle_performance_monthly(self.nozzle, 1405, 5)
 
         self.assertIn(str(service_report["beginning_of_month_meter"]), text)
         self.assertIn(str(service_report["end_of_month_meter"]), text)
@@ -218,7 +218,7 @@ class PrintingHttpTests(TestCase):
     def test_pdf_uses_a4_page_size(self):
         """A4 in PDF points is 595 x 842 (21cm x 29.7cm @ 72dpi).
         WeasyPrint embeds this in the page /MediaBox."""
-        resp = self.client.get("/print/petroleum-monthly/?year=2026&month=8")
+        resp = self.client.get("/print/petroleum-monthly/?year=1405&month=5")
         from pypdf import PdfReader
         import io
         reader = PdfReader(io.BytesIO(resp.content))
@@ -232,7 +232,7 @@ class PrintingHttpTests(TestCase):
     # --- 5. RTL/Persian content is handled by the rendering approach ---
 
     def test_pdf_contains_persian_report_title_text(self):
-        resp = self.client.get("/print/petroleum-monthly/?year=2026&month=8")
+        resp = self.client.get("/print/petroleum-monthly/?year=1405&month=5")
         text = _pdf_text(resp.content)
         # Persian report title text must appear (proves Persian glyphs
         # were shaped/embedded, not dropped or replaced with tofu boxes).
@@ -245,7 +245,7 @@ class PrintingHttpTests(TestCase):
         from django.template.loader import render_to_string
         from apps.printing import services as printing_services
 
-        context = printing_services.build_petroleum_monthly_context(2026, 8)
+        context = printing_services.build_petroleum_monthly_context(1405, 5)
         html = render_to_string("printing/petroleum_monthly_print.html", context)
         self.assertIn('dir="rtl"', html)
 
@@ -253,14 +253,14 @@ class PrintingHttpTests(TestCase):
     #        no stale stored report data or print-specific cache ---
 
     def test_editing_actual_inventory_changes_subsequent_print(self):
-        resp_before = self.client.get("/print/petroleum-monthly/?year=2026&month=8")
+        resp_before = self.client.get("/print/petroleum-monthly/?year=1405&month=5")
         text_before = _pdf_text(resp_before.content)
         self.assertIn("905", text_before)  # original ending inventory
 
         self.inventory_row.actual_inventory = Decimal("500")
         self.inventory_row.save()
 
-        resp_after = self.client.get("/print/petroleum-monthly/?year=2026&month=8")
+        resp_after = self.client.get("/print/petroleum-monthly/?year=1405&month=5")
         text_after = _pdf_text(resp_after.content)
         self.assertIn("500", text_after)  # updated ending inventory
         self.assertNotIn("905", text_after)

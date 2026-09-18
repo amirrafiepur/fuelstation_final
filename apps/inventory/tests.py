@@ -23,6 +23,8 @@ User = get_user_model()
 
 class TankInventoryChainTests(TestCase):
     def setUp(self):
+        # 2026-08-01 is Jalali 1405/05/10 -- the accounting start (day 1
+        # of that Jalali month) is Gregorian 2026-07-23.
         License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
         self.station = Station.objects.create(name="Test Station", province="P", city="C")
         self.product = Product.objects.create(name="Regular")
@@ -30,8 +32,8 @@ class TankInventoryChainTests(TestCase):
         self.nozzle = Nozzle.objects.create(tank=self.tank, number=1)
         self.user = User.objects.create_user(username="op1", password="x")
 
-        self.day1 = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
-        self.day2 = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 2))
+        self.day1 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        self.day2 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 24))
 
     def _make_nozzle_sale(self, working_day, previous_meter, new_meter, test):
         invoice, _ = SalesInvoice.objects.get_or_create(
@@ -51,7 +53,7 @@ class TankInventoryChainTests(TestCase):
         # Opening Inventory = 1000, Purchase = 100, Test = 5, Sales = 200,
         # Actual Inventory = 905 -> Total=1105, Theoretical=905, Shortage=0, Overage=0
         OpeningInventory.objects.create(
-            tank=self.tank, opening_quantity=Decimal("1000"), effective_month=datetime.date(2026, 8, 1)
+            tank=self.tank, opening_quantity=Decimal("1000"), effective_month=datetime.date(2026, 7, 23)
         )
         PurchaseInvoice.objects.create(
             working_day=self.day1, tank=self.tank, quantity=100, purchase_rate=Decimal("1200")
@@ -125,13 +127,16 @@ User_ = get_user_model()
 class InventoryWorkflowHttpTests(_TestCase):
     def setUp(self):
         self.user = User_.objects.create_user(username="op1", password="testpass123")
+        # 2026-08-01 is Jalali 1405/05/10 -- accounting start (day 1 of
+        # that Jalali month) is Gregorian 2026-07-23, so that's the date
+        # that must trigger the "day 1" opening-inventory prompt below.
         License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
         station = Station.objects.create(name="S", province="P", city="C")
         self.product = Product.objects.create(name="Regular")
         self.tank = Tank.objects.create(station=station, product=self.product, capacity=50000)
         self.client.login(username="op1", password="testpass123")
-        self.day1 = "2026-08-01"
-        self.day2 = "2026-08-02"
+        self.day1 = "2026-07-23"
+        self.day2 = "2026-07-24"
 
     def test_day_detail_prompts_for_opening_inventory_on_first_day(self):
         resp = self.client.get(f"/inventory/{self.day1}/")

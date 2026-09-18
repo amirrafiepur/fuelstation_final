@@ -70,6 +70,64 @@ def parse_jalali(text: str) -> datetime.date:
     return j.togregorian()
 
 
+def jalali_month_bounds(jalali_year: int, jalali_month: int) -> tuple[datetime.date, datetime.date]:
+    """
+    Given a Jalali year/month (jalali_month in 1..12), returns
+    (first_day, last_day) as Gregorian dates -- the correct Gregorian
+    boundary for "this Jalali month", handling 29/30/31-day months and
+    leap Esfand (30 days) correctly.
+
+    This exists because "first/last of the month" must mean the
+    operator's Jalali month, not the Gregorian calendar month: a period
+    such as "1405/06" has to bound its data/backfill range by the
+    Gregorian dates that 1405/06 actually spans, not by date(1405, 6, 1)
+    misread as a Gregorian year/month, and not by the Gregorian calendar
+    month that happens to share part of the same wall-clock time.
+
+    The last day is computed as "the day before the first day of the
+    next Jalali month" rather than a fixed 29/30/31 table, so leap years
+    (which move Esfand from 29 to 30 days) are handled correctly without
+    a separate leap-year check.
+    """
+    first = jdatetime.date(jalali_year, jalali_month, 1)
+    if jalali_month == 12:
+        next_month_first = jdatetime.date(jalali_year + 1, 1, 1)
+    else:
+        next_month_first = jdatetime.date(jalali_year, jalali_month + 1, 1)
+    last = next_month_first.togregorian() - datetime.timedelta(days=1)
+    return first.togregorian(), last
+
+
+def jalali_month_start(value: datetime.date) -> datetime.date:
+    """
+    Given any Gregorian date, returns the Gregorian date of day 1 of the
+    JALALI month containing it -- e.g. 2026-09-01 (Jalali 1405/06/10)
+    returns 2026-08-23 (Jalali 1405/06/01), NOT 2026-09-01 itself.
+
+    This is the fix for a specific bug class: anywhere the codebase used
+    to compute "first of the month" as value.replace(day=1) (a Gregorian
+    operation) and then display that result through the |jalali filter,
+    the displayed date looked like a nonsensical mid-month Jalali date
+    (e.g. "1405/06/10") instead of the real first-of-month
+    ("1405/06/01"), because replace(day=1) finds the 1st of the
+    Gregorian month, which essentially never lines up with the 1st of
+    the corresponding Jalali month. Use this function instead of
+    value.replace(day=1) wherever the "first of the month" the operator
+    sees/reads needs to be a Jalali month boundary.
+    """
+    j = to_jalali(value)
+    first, _ = jalali_month_bounds(j.year, j.month)
+    return first
+
+
+def current_jalali_year_month(today: datetime.date) -> tuple[int, int]:
+    """The Jalali (year, month) containing the given Gregorian date --
+    used wherever a view needs "this month" to mean the operator's
+    current Jalali month rather than the Gregorian one."""
+    j = to_jalali(today)
+    return j.year, j.month
+
+
 class JalaliDateWidget(forms.TextInput):
     """
     A plain text input that displays and accepts Jalali dates

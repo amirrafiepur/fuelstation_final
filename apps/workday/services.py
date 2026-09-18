@@ -20,14 +20,26 @@ from apps.license import services as license_services
 
 def get_accounting_start_date() -> datetime.date | None:
     """
-    Day 1 of the calendar month containing the license's start_date (the
+    Day 1 of the JALALI month containing the license's start_date (the
     first activation date). Returns None if no license has been activated
     yet (first-run setup not yet completed).
+
+    This must be the 1st of the operator's Jalali month, not the 1st of
+    the Gregorian calendar month: the accounting backfill sequence, the
+    dashboard's "N incomplete days, continue from <date>" warning, and
+    the global Date Control all ultimately start counting from this
+    value and display it through the Jalali filter. A Gregorian
+    replace(day=1) here produces a Gregorian date that, once displayed
+    in Jalali, looks like a nonsensical mid-month date (e.g. "1405/06/10"
+    instead of the real month start "1405/06/01") -- see
+    apps/core/jalali.py's jalali_month_start() docstring for the full
+    explanation of this bug class.
     """
     lic = license_services.get_current_license()
     if lic is None:
         return None
-    return lic.start_date.replace(day=1)
+    from apps.core.jalali import jalali_month_start
+    return jalali_month_start(lic.start_date)
 
 
 def get_today() -> datetime.date:

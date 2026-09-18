@@ -8,6 +8,7 @@ import datetime
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
+from apps.core.jalali import current_jalali_year_month, jalali_month_bounds
 from apps.stations.models import Nozzle, Tank
 from apps.workday import services as workday_services
 
@@ -23,9 +24,15 @@ def nozzle_performance_ledger(request, nozzle_id=None):
     today = workday_services.get_today()
     accounting_start = workday_services.get_accounting_start_date()
 
-    # Default date range: current month
+    # Default date range: the current JALALI month (the period the
+    # operator actually thinks in), not the Gregorian calendar month --
+    # start_date is day 1 of the current Jalali month, converted to
+    # Gregorian for the query, so its Jalali display is correctly
+    # "1405/06/01" rather than a mid-month Gregorian date reinterpreted
+    # as Jalali.
+    jalali_year, jalali_month = current_jalali_year_month(today)
+    start_date, _ = jalali_month_bounds(jalali_year, jalali_month)
     end_date = today
-    start_date = datetime.date(today.year, today.month, 1)
 
     if request.GET.get("nozzle_id"):
         nozzle_id = int(request.GET.get("nozzle_id"))
@@ -61,10 +68,15 @@ def nozzle_performance_monthly(request):
     """
     Monthly Nozzle Performance Report: per-nozzle monthly totals for a
     chosen year/month.
+
+    year/month here are JALALI (the operator picks/reads e.g. 1405/06,
+    not a Gregorian month) -- see reports/services.py's
+    nozzle_performance_monthly() docstring.
     """
     today = workday_services.get_today()
-    year = int(request.GET.get("year", today.year))
-    month = int(request.GET.get("month", today.month))
+    default_year, default_month = current_jalali_year_month(today)
+    year = int(request.GET.get("year", default_year))
+    month = int(request.GET.get("month", default_month))
 
     nozzles = Nozzle.objects.select_related("tank__product").order_by("number")
     rows = []
@@ -90,9 +102,11 @@ def petroleum_inventory_operations_ledger(request, tank_id=None):
     today = workday_services.get_today()
     accounting_start = workday_services.get_accounting_start_date()
 
-    # Default date range: current month
+    # Default date range: current JALALI month -- see the identical
+    # comment in nozzle_performance_ledger() above.
+    jalali_year, jalali_month = current_jalali_year_month(today)
+    start_date, _ = jalali_month_bounds(jalali_year, jalali_month)
     end_date = today
-    start_date = datetime.date(today.year, today.month, 1)
 
     if request.GET.get("tank_id"):
         tank_id = int(request.GET.get("tank_id"))
@@ -127,10 +141,14 @@ def petroleum_inventory_operations_ledger(request, tank_id=None):
 def petroleum_inventory_monthly(request):
     """
     Monthly Tank Statement: per-tank monthly totals for a chosen year/month.
+
+    year/month here are JALALI -- see
+    reports/services.py's petroleum_inventory_monthly() docstring.
     """
     today = workday_services.get_today()
-    year = int(request.GET.get("year", today.year))
-    month = int(request.GET.get("month", today.month))
+    default_year, default_month = current_jalali_year_month(today)
+    year = int(request.GET.get("year", default_year))
+    month = int(request.GET.get("month", default_month))
 
     tanks = Tank.objects.select_related("product").order_by("product__name")
     rows = []

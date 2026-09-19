@@ -53,8 +53,7 @@ class ReportsHttpTests(TestCase):
             "/reports/nozzle-ledger/"
             "?nozzle_id=1&start_date=2026-07-25&end_date=2026-08-05"
         )
-        self.assertContains(resp, "100")  # operation and sales_amount (both same since test=0)
-        self.assertContains(resp, "120000")  # total_amount (100 * 1200)
+        self.assertContains(resp, "100")  # operation, mechanical_sales, daily_total, cumulative_total (all same on day 1 since test=0)
 
     def test_nozzle_ledger_date_range_filter(self):
         invoice = SalesInvoice.objects.create(working_day=self.wd, operator=self.user)
@@ -163,8 +162,7 @@ class ReportsHttpTests(TestCase):
 
         # Report immediately shows the new data
         resp2 = self.client.get(url)
-        self.assertContains(resp2, "100.00")  # operation and mechanical_sales
-        self.assertContains(resp2, "120000")  # total_amount (100 * 1200)
+        self.assertContains(resp2, "100.00")  # operation, mechanical_sales, daily_total, cumulative_total
 
         # Edit the sale
         sale = NozzleSale.objects.get(nozzle=self.nozzle)
@@ -173,8 +171,7 @@ class ReportsHttpTests(TestCase):
 
         # Report immediately reflects the change in the table data
         resp3 = self.client.get(url)
-        self.assertContains(resp3, "150.00")  # operation and mechanical_sales (updated)
-        self.assertContains(resp3, "180000")  # total_amount (150 * 1200, updated)
+        self.assertContains(resp3, "150.00")  # operation, mechanical_sales, daily_total, cumulative_total (updated)
 
 
 # ---------------------------------------------------------------------------
@@ -429,3 +426,140 @@ class Phase7RuleComplianceTests(TestCase):
 
         report_after = report_services.petroleum_inventory_monthly(self.tank, 1405, 5)
         self.assertEqual(report_after["total_purchase"], Decimal("0"))
+
+class NozzleLedgerNewColumnsTests(TestCase):
+    """
+    Covers the نازل‌ها daily ledger's reworked columns: کنتور قبلی,
+    آزمایش, کنتور جدید are the raw NozzleSale values; جمع روزانه =
+    فروش مکانیکی + آزمایش; جمع کل is the running sum of جمع روزانه
+    across the selected date range.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="op3", password="testpass123")
+        License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        station = Station.objects.create(name="S3", province="P", city="C")
+        product = Product.objects.create(name="Regular3")
+        self.tank = Tank.objects.create(station=station, product=product, capacity=50000)
+        self.nozzle = Nozzle.objects.create(tank=self.tank, number=1)
+
+    def _make_day(self, iso_date):
+        return DailyWorkingDay.objects.create(date=datetime.date.fromisoformat(iso_date))
+
+    def _make_sale(self, wd, previous_meter, new_meter, test=Decimal("0"), rate=Decimal("1200")):
+        invoice = SalesInvoice.objects.get_or_create(working_day=wd, defaults={"operator": self.user})[0]
+        return NozzleSale.objects.create(
+            sales_invoice=invoice, nozzle=self.nozzle,
+            previous_meter=previous_meter, new_meter=new_meter, test=test, sales_rate=rate,
+        )
+
+    def test_row_exposes_previous_meter_test_and_new_meter_verbatim(self):
+        wd = self._make_day("2026-08-01")
+        self._make_sale(wd, previous_meter=Decimal("100"), new_meter=Decimal("160"), test=Decimal("5"))
+        from apps.reports import services as report_services
+        rows = report_services.nozzle_performance_ledger(
+            self.nozzle, datetime.date(2026, 8, 1), datetime.date(2026, 8, 1)
+        )
+        self.assertEqual(rows[0]["previous_meter"], Decimal("100"))
+        self.assertEqual(rows[0]["new_meter"], Decimal("160"))
+        self.assertEqual(rows[0]["test"], Decimal("5"))
+
+    def test_daily_total_equals_mechanical_sales_plus_test(self):
+        wd = self._make_day("2026-08-01")
+        # operation = 60, test = 5 -> mechanical_sales = 55 -> daily_total = 55 + 5 = 60
+        self._make_sale(wd, previous_meter=Decimal("100"), new_meter=Decimal("160"), test=Decimal("5"))
+        from apps.reports import services as report_services
+        rows = report_services.nozzle_performance_ledger(
+            self.nozzle, datetime.date(2026, 8, 1), datetime.date(2026, 8, 1)
+        )
+        self.assertEqual(rows[0]["mechanical_sales"], Decimal("55"))
+        self.assertEqual(rows[0]["daily_total"], Decimal("60"))
+
+    def test_daily_total_with_no_test_matches_ui_zero_convention(self):
+        wd = self._make_day("2026-08-01")
+        self._make_sale(wd, previous_meter=Decimal("0"), new_meter=Decimal("50"))  # test defaults to 0
+        from apps.reports import services as report_services
+        rows = report_services.nozzle_performance_ledger(
+            self.nozzle, datetime.date(2026, 8, 1), datetime.date(2026, 8, 1)
+        )
+        self.assertEqual(rows[0]["test"], Decimal("0"))
+        self.assertEqual(rows[0]["daily_total"], Decimal("50"))
+
+    def test_cumulative_total_on_first_available_day_equals_its_own_daily_total(self):
+        wd = self._make_day("2026-08-01")
+        self._make_sale(wd, previous_meter=Decimal("0"), new_meter=Decimal("50"))
+        from apps.reports import services as report_services
+        rows = report_services.nozzle_performance_ledger(
+            self.nozzle, datetime.date(2026, 8, 1), datetime.date(2026, 8, 1)
+        )
+        self.assertEqual(rows[0]["cumulative_total"], rows[0]["daily_total"])
+        self.assertEqual(rows[0]["cumulative_total"], Decimal("50"))
+
+    def test_cumulative_total_accumulates_across_multiple_days(self):
+        wd1 = self._make_day("2026-08-01")
+        wd2 = self._make_day("2026-08-02")
+        wd3 = self._make_day("2026-08-03")
+        self._make_sale(wd1, previous_meter=Decimal("0"), new_meter=Decimal("50"))       # daily_total 50
+        self._make_sale(wd2, previous_meter=Decimal("50"), new_meter=Decimal("120"), test=Decimal("10"))  # op=70, mech=60, daily_total=70
+        self._make_sale(wd3, previous_meter=Decimal("120"), new_meter=Decimal("150"))     # daily_total 30
+
+        from apps.reports import services as report_services
+        rows = report_services.nozzle_performance_ledger(
+            self.nozzle, datetime.date(2026, 8, 1), datetime.date(2026, 8, 3)
+        )
+        self.assertEqual(rows[0]["cumulative_total"], Decimal("50"))
+        self.assertEqual(rows[1]["cumulative_total"], Decimal("120"))   # 50 + 70
+        self.assertEqual(rows[2]["cumulative_total"], Decimal("150"))   # 120 + 30
+
+    def test_cumulative_total_ignores_days_outside_the_selected_range(self):
+        # A day before the range must not silently contribute to the
+        # first in-range day's cumulative total.
+        wd0 = self._make_day("2026-07-31")
+        wd1 = self._make_day("2026-08-01")
+        self._make_sale(wd0, previous_meter=Decimal("0"), new_meter=Decimal("9999"))
+        self._make_sale(wd1, previous_meter=Decimal("9999"), new_meter=Decimal("10049"))  # daily_total 50
+
+        from apps.reports import services as report_services
+        rows = report_services.nozzle_performance_ledger(
+            self.nozzle, datetime.date(2026, 8, 1), datetime.date(2026, 8, 1)
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["cumulative_total"], Decimal("50"))
+
+    def test_operation_and_sales_rate_unchanged_by_the_rework(self):
+        wd = self._make_day("2026-08-01")
+        self._make_sale(wd, previous_meter=Decimal("100"), new_meter=Decimal("160"), test=Decimal("5"), rate=Decimal("1200"))
+        from apps.reports import services as report_services
+        rows = report_services.nozzle_performance_ledger(
+            self.nozzle, datetime.date(2026, 8, 1), datetime.date(2026, 8, 1)
+        )
+        self.assertEqual(rows[0]["operation"], Decimal("60"))
+        self.assertEqual(rows[0]["sales_rate"], Decimal("1200"))
+
+    def test_new_columns_render_on_the_ledger_page(self):
+        self.client.login(username="op3", password="testpass123")
+        wd1 = self._make_day("2026-08-01")
+        wd2 = self._make_day("2026-08-02")
+        self._make_sale(wd1, previous_meter=Decimal("100"), new_meter=Decimal("160"), test=Decimal("5"))
+        self._make_sale(wd2, previous_meter=Decimal("160"), new_meter=Decimal("210"))
+
+        resp = self.client.get(
+            f"/reports/nozzle-ledger/?nozzle_id={self.nozzle.id}"
+            "&start_date=2026-08-01&end_date=2026-08-02"
+        )
+        content = resp.content.decode()
+
+        # All 9 required columns, in the exact right-to-left order given.
+        for label in [
+            "تاریخ", "کنتور قبلی", "آزمایش", "فروش مکانیکی",
+            "جمع روزانه", "جمع کل", "کنتور جدید", "عملکرد", "نرخ",
+        ]:
+            self.assertIn(label, content)
+
+        # The removed column must be gone from the ledger page.
+        self.assertNotIn("مبلغ کل", content)
+
+        # Day 1: daily_total = 55 (mech) + 5 (test) = 60, cumulative = 60.
+        # Day 2: daily_total = 50, cumulative = 60 + 50 = 110.
+        self.assertContains(resp, "60.00")
+        self.assertContains(resp, "110.00")

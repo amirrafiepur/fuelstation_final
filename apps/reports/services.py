@@ -19,10 +19,27 @@ from apps.workday.models import DailyWorkingDay
 def nozzle_performance_ledger(nozzle: Nozzle, start_date, end_date):
     """
     Nozzle Performance Ledger (F5): per nozzle, one row per working day
-    from start_date through end_date, showing Operation, Mechanical Sales,
-    and Total Amount (sales_amount). All derived from NozzleSale records.
+    from start_date through end_date. All derived from NozzleSale records
+    -- previous_meter, test, and new_meter are the exact values entered
+    on the sales form (apps/sales/models.py:NozzleSale); operation,
+    mechanical_sales, sales_amount, and total_amount reuse that model's
+    existing derived properties verbatim (no duplicate calculation here).
+
+    daily_total ("جمع روزانه") = mechanical_sales + test. This is
+    algebraically identical to operation (since mechanical_sales =
+    operation - test by definition), which is expected, not a bug --
+    both are shown as separate columns because they answer different
+    questions (net sales-with-test-added-back vs. raw meter movement).
+
+    cumulative_total ("جمع کل") is the running sum of daily_total across
+    this row set, in date order: first row's cumulative_total equals its
+    own daily_total, and each later row adds its daily_total to the
+    previous row's cumulative_total. It resets to start fresh for each
+    call (i.e. for each selected date range), and is computed purely
+    from daily_total here -- no separate/duplicate accumulation logic.
     """
     rows = []
+    cumulative_total = None
     for wd in DailyWorkingDay.objects.filter(
         date__gte=start_date, date__lte=end_date
     ).order_by("date"):
@@ -31,11 +48,20 @@ def nozzle_performance_ledger(nozzle: Nozzle, start_date, end_date):
         ).first()
 
         if sale:
+            daily_total = sale.mechanical_sales + sale.test
+            cumulative_total = (
+                daily_total if cumulative_total is None else cumulative_total + daily_total
+            )
             rows.append({
                 "date": wd.date,
                 "nozzle": nozzle,
+                "previous_meter": sale.previous_meter,
+                "new_meter": sale.new_meter,
+                "test": sale.test,
                 "operation": sale.operation,
                 "mechanical_sales": sale.mechanical_sales,
+                "daily_total": daily_total,
+                "cumulative_total": cumulative_total,
                 "sales_amount": sale.sales_amount,
                 "sales_rate": sale.sales_rate,
                 "total_amount": sale.total_amount,

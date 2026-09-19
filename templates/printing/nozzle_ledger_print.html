@@ -13,20 +13,28 @@
   <thead>
     <tr>
       <th>تاریخ</th>
-      <th>عملکرد</th>
+      <th>کنتور قبلی</th>
+      <th>آزمایش</th>
       <th>فروش مکانیکی</th>
+      <th>جمع روزانه</th>
+      <th>جمع کل</th>
+      <th>کنتور جدید</th>
+      <th>عملکرد</th>
       <th>نرخ</th>
-      <th>مبلغ کل</th>
     </tr>
   </thead>
   <tbody>
     {% for row in rows %}
     <tr>
       <td class="numeric">{{ row.date|jalali }}</td>
-      <td class="numeric">{{ row.operation }}</td>
+      <td class="numeric">{{ row.previous_meter }}</td>
+      <td class="numeric">{{ row.test }}</td>
       <td class="numeric">{{ row.mechanical_sales }}</td>
+      <td class="numeric">{{ row.daily_total }}</td>
+      <td class="numeric">{{ row.cumulative_total }}</td>
+      <td class="numeric">{{ row.new_meter }}</td>
+      <td class="numeric">{{ row.operation }}</td>
       <td class="numeric">{{ row.sales_rate }}</td>
-      <td class="numeric">{{ row.total_amount }}</td>
     </tr>
     {% endfor %}
   </tbody>

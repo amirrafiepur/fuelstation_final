@@ -169,10 +169,14 @@ class PrintingHttpTests(TestCase):
 
         # Every value the print PDF shows must equal the exact value the
         # on-screen report service computed -- not merely "a number".
-        self.assertIn(str(row["operation"]), text)
+        self.assertIn(str(row["previous_meter"]), text)
+        self.assertIn(str(row["test"]), text)
         self.assertIn(str(row["mechanical_sales"]), text)
+        self.assertIn(str(row["daily_total"]), text)
+        self.assertIn(str(row["cumulative_total"]), text)
+        self.assertIn(str(row["new_meter"]), text)
+        self.assertIn(str(row["operation"]), text)
         self.assertIn(str(row["sales_rate"]), text)
-        self.assertIn(str(row["total_amount"]), text)
 
     def test_petroleum_ledger_pdf_matches_report_service_values(self):
         resp = self.client.get(

@@ -8,7 +8,7 @@
 {% block content %}
 
 <div class="panel">
-  <h2 class="panel__title">گزارش کارکرد نازل‌ها — دفتر روزانه</h2>
+  <h2 class="panel__title">  گزارش کارکرد هر نازل - دفتر روزانه  </h2>
 
   <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
     <div>
@@ -58,7 +58,6 @@
           <th style="padding: 0.4rem;">جمع روزانه</th>
           <th style="padding: 0.4rem;">جمع کل</th>
           <th style="padding: 0.4rem;">کنتور جدید</th>
-          <th style="padding: 0.4rem;">عملکرد</th>
           <th style="padding: 0.4rem;">نرخ</th>
         </tr>
       </thead>
@@ -72,7 +71,6 @@
           <td style="padding: 0.4rem;" class="numeric">{{ row.daily_total }}</td>
           <td style="padding: 0.4rem;" class="numeric">{{ row.cumulative_total }}</td>
           <td style="padding: 0.4rem;" class="numeric">{{ row.new_meter }}</td>
-          <td style="padding: 0.4rem;" class="numeric">{{ row.operation }}</td>
           <td style="padding: 0.4rem;" class="numeric">{{ row.sales_rate }}</td>
         </tr>
         {% endfor %}

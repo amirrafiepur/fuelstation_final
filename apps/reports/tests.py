@@ -527,6 +527,10 @@ class NozzleLedgerNewColumnsTests(TestCase):
         self.assertEqual(rows[0]["cumulative_total"], Decimal("50"))
 
     def test_operation_and_sales_rate_unchanged_by_the_rework(self):
+        # operation remains in the service's row data (still used by the
+        # monthly report and the model itself) even though it is no
+        # longer a displayed column on this ledger -- see
+        # nozzle_performance_ledger.html.
         wd = self._make_day("2026-08-01")
         self._make_sale(wd, previous_meter=Decimal("100"), new_meter=Decimal("160"), test=Decimal("5"), rate=Decimal("1200"))
         from apps.reports import services as report_services
@@ -549,15 +553,18 @@ class NozzleLedgerNewColumnsTests(TestCase):
         )
         content = resp.content.decode()
 
-        # All 9 required columns, in the exact right-to-left order given.
+        # All 8 required columns, in the exact right-to-left order given
+        # (عملکرد/operation was removed: it is numerically identical to
+        # جمع روزانه/daily_total, so keeping both was a duplicate column).
         for label in [
             "تاریخ", "کنتور قبلی", "آزمایش", "فروش مکانیکی",
-            "جمع روزانه", "جمع کل", "کنتور جدید", "عملکرد", "نرخ",
+            "جمع روزانه", "جمع کل", "کنتور جدید", "نرخ",
         ]:
             self.assertIn(label, content)
 
-        # The removed column must be gone from the ledger page.
+        # Both removed columns must be gone from the ledger page.
         self.assertNotIn("مبلغ کل", content)
+        self.assertNotIn("عملکرد", content)
 
         # Day 1: daily_total = 55 (mech) + 5 (test) = 60, cumulative = 60.
         # Day 2: daily_total = 50, cumulative = 60 + 50 = 110.

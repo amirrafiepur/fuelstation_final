@@ -81,6 +81,26 @@ def get_most_recent_rate(tank) -> Decimal | None:
     return last_sale.sales_rate if last_sale else None
 
 
+def get_previous_new_meter(nozzle: Nozzle) -> Decimal | None:
+    """
+    The New Meter from this nozzle's most recent prior NozzleSale, to
+    suggest as the default Previous Meter for the next entry -- exactly
+    the same pattern as get_most_recent_rate() above, just per-nozzle
+    instead of per-tank (each nozzle's meter is independent even within
+    the same tank/product). Previous Meter is hand-entered only on this
+    nozzle's very first entry ever (when this returns None); every entry
+    after that is pre-filled from this, but -- like the suggested sales
+    rate -- remains a normal, freely editable field, never locked or
+    made read-only.
+    """
+    last_sale = (
+        NozzleSale.objects.filter(nozzle=nozzle)
+        .order_by("-sales_invoice__working_day__date", "-id")
+        .first()
+    )
+    return last_sale.new_meter if last_sale else None
+
+
 def validate_all_nozzles_registered(working_day) -> tuple[bool, list[int]]:
     """
     Returns (all_registered, missing_nozzle_numbers). A working day cannot

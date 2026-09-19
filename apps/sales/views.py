@@ -131,9 +131,12 @@ def nozzle_entry(request, date, nozzle_number=None):
     existing = NozzleSale.objects.filter(sales_invoice=invoice, nozzle=nozzle).first()
 
     suggested_rate = sales_services.get_most_recent_rate(nozzle.tank)
+    suggested_previous_meter = sales_services.get_previous_new_meter(nozzle)
     initial = {}
     if existing is None and suggested_rate is not None:
         initial["sales_rate"] = suggested_rate
+    if existing is None and suggested_previous_meter is not None:
+        initial["previous_meter"] = suggested_previous_meter
 
     confirm_negative = request.POST.get("confirm_negative_meter") == "1"
 

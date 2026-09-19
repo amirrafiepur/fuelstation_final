@@ -133,6 +133,64 @@ class ValidateAllNozzlesRegisteredTests(TestCase):
         self.assertEqual(missing, [])
 
 
+class GetPreviousNewMeterTests(TestCase):
+    """
+    get_previous_new_meter() suggests Previous Meter exactly the way
+    get_most_recent_rate() suggests سری/sales_rate: it returns the value
+    to pre-fill, never anything about locking the field.
+    """
+
+    def setUp(self):
+        station = Station.objects.create(name="S", province="P", city="C")
+        product = Product.objects.create(name="Regular")
+        self.tank = Tank.objects.create(station=station, product=product, capacity=1000)
+        self.nozzle = Nozzle.objects.create(tank=self.tank, number=1)
+        self.other_nozzle = Nozzle.objects.create(tank=self.tank, number=2)
+        self.user = User.objects.create_user(username="op", password="x")
+
+    def test_returns_none_when_nozzle_has_no_prior_entries(self):
+        self.assertIsNone(services.get_previous_new_meter(self.nozzle))
+
+    def test_returns_new_meter_of_the_only_prior_entry(self):
+        wd1 = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        invoice1 = SalesInvoice.objects.create(working_day=wd1, operator=self.user)
+        NozzleSale.objects.create(
+            sales_invoice=invoice1, nozzle=self.nozzle,
+            previous_meter=Decimal("0"), new_meter=Decimal("150"), test=Decimal("0"),
+            sales_rate=Decimal("1200"),
+        )
+        self.assertEqual(services.get_previous_new_meter(self.nozzle), Decimal("150"))
+
+    def test_returns_new_meter_of_the_chronologically_latest_entry(self):
+        wd1 = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        wd2 = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 2))
+        invoice1 = SalesInvoice.objects.create(working_day=wd1, operator=self.user)
+        invoice2 = SalesInvoice.objects.create(working_day=wd2, operator=self.user)
+        NozzleSale.objects.create(
+            sales_invoice=invoice1, nozzle=self.nozzle,
+            previous_meter=Decimal("0"), new_meter=Decimal("150"), test=Decimal("0"),
+            sales_rate=Decimal("1200"),
+        )
+        NozzleSale.objects.create(
+            sales_invoice=invoice2, nozzle=self.nozzle,
+            previous_meter=Decimal("150"), new_meter=Decimal("300"), test=Decimal("0"),
+            sales_rate=Decimal("1200"),
+        )
+        self.assertEqual(services.get_previous_new_meter(self.nozzle), Decimal("300"))
+
+    def test_independent_per_nozzle(self):
+        wd1 = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        invoice1 = SalesInvoice.objects.create(working_day=wd1, operator=self.user)
+        NozzleSale.objects.create(
+            sales_invoice=invoice1, nozzle=self.nozzle,
+            previous_meter=Decimal("0"), new_meter=Decimal("150"), test=Decimal("0"),
+            sales_rate=Decimal("1200"),
+        )
+        # A different nozzle with no entries of its own must not see the
+        # first nozzle's suggested meter.
+        self.assertIsNone(services.get_previous_new_meter(self.other_nozzle))
+
+
 # ---------------------------------------------------------------------------
 # HTTP-level integration tests for the sequential nozzle entry workflow.
 # ---------------------------------------------------------------------------
@@ -240,3 +298,81 @@ class SequentialNozzleEntryHttpTests(_TestCase):
         )
         self.assertEqual(NozzleSale.objects.filter(nozzle__number=1).count(), 1)
         self.assertEqual(NozzleSale.objects.get(nozzle__number=1).new_meter, Decimal("150"))
+
+
+class PreviousMeterSuggestionHttpTests(_TestCase):
+    """
+    Previous Meter is suggested (pre-filled) from this same nozzle's
+    prior New Meter exactly like سری/sales_rate is suggested -- a normal,
+    always-editable field, never read-only/locked.
+    """
+
+    def setUp(self):
+        self.user = _User.objects.create_user(username="op1", password="testpass123")
+        _License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        station = Station.objects.create(name="S", province="P", city="C")
+        product = Product.objects.create(name="Regular")
+        self.tank = Tank.objects.create(station=station, product=product, capacity=50000)
+        Nozzle.objects.create(tank=self.tank, number=1)
+        Nozzle.objects.create(tank=self.tank, number=2)
+        self.client.login(username="op1", password="testpass123")
+
+    def test_first_entry_ever_leaves_previous_meter_blank(self):
+        resp = self.client.get("/sales/invoices/2026-08-01/nozzle/1/")
+        self.assertNotContains(resp, 'value="0.00"')
+        self.assertNotContains(resp, "readonly")
+
+    def test_second_day_prefills_previous_meter_from_prior_new_meter(self):
+        self.client.post(
+            "/sales/invoices/2026-08-01/nozzle/1/",
+            {"previous_meter": "0", "new_meter": "150", "test": "0", "sales_rate": "1200"},
+        )
+        resp = self.client.get("/sales/invoices/2026-08-02/nozzle/1/")
+        self.assertContains(resp, 'value="150.00"')
+
+    def test_prefilled_previous_meter_field_is_never_readonly(self):
+        self.client.post(
+            "/sales/invoices/2026-08-01/nozzle/1/",
+            {"previous_meter": "0", "new_meter": "150", "test": "0", "sales_rate": "1200"},
+        )
+        resp = self.client.get("/sales/invoices/2026-08-02/nozzle/1/")
+        self.assertNotContains(resp, "readonly")
+
+    def test_operator_can_override_the_suggested_previous_meter(self):
+        self.client.post(
+            "/sales/invoices/2026-08-01/nozzle/1/",
+            {"previous_meter": "0", "new_meter": "150", "test": "0", "sales_rate": "1200"},
+        )
+        # The operator types a different value than the one suggested --
+        # since the field is a normal editable input, this must be
+        # accepted and saved as-is, exactly like overriding sales_rate.
+        self.client.post(
+            "/sales/invoices/2026-08-02/nozzle/1/",
+            {"previous_meter": "160", "new_meter": "300", "test": "0", "sales_rate": "1200"},
+        )
+        wd2_sale = NozzleSale.objects.get(
+            nozzle__number=1, sales_invoice__working_day__date=datetime.date(2026, 8, 2)
+        )
+        self.assertEqual(wd2_sale.previous_meter, Decimal("160"))
+
+    def test_suggestion_is_independent_per_nozzle(self):
+        self.client.post(
+            "/sales/invoices/2026-08-01/nozzle/1/",
+            {"previous_meter": "0", "new_meter": "150", "test": "0", "sales_rate": "1200"},
+        )
+        # Nozzle 2 has never been entered -- must stay blank on this same
+        # working day, unaffected by nozzle 1's history.
+        resp = self.client.get("/sales/invoices/2026-08-01/nozzle/2/")
+        self.assertNotContains(resp, 'value="150.00"')
+
+    def test_third_day_prefills_from_second_days_new_meter(self):
+        self.client.post(
+            "/sales/invoices/2026-08-01/nozzle/1/",
+            {"previous_meter": "0", "new_meter": "150", "test": "0", "sales_rate": "1200"},
+        )
+        self.client.post(
+            "/sales/invoices/2026-08-02/nozzle/1/",
+            {"previous_meter": "150", "new_meter": "300", "test": "0", "sales_rate": "1200"},
+        )
+        resp = self.client.get("/sales/invoices/2026-08-03/nozzle/1/")
+        self.assertContains(resp, 'value="300.00"')

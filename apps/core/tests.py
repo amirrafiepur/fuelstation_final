@@ -91,3 +91,33 @@ class DashboardSmokeTests(TestCase):
             "/license/renew/", {"password": "769112005a@"}, follow=True
         )
         self.assertContains(resp, "کارکرد مخازن")
+
+    def test_each_nozzle_button_links_to_its_own_ledger(self):
+        """
+        Clicking a nozzle on the dashboard must take the operator to
+        گزارش کارکرد هر نازل for THAT nozzle -- not to the sales entry
+        screen. Checked for every one of the 26 seeded nozzles, not just
+        one, since each button's link is built from that nozzle's own id.
+        """
+        self.client.login(username="op1", password="testpass123")
+        resp = self.client.get("/")
+        content = resp.content.decode()
+
+        for nozzle in Nozzle.objects.all():
+            expected_href = f'/reports/nozzle-ledger/?nozzle_id={nozzle.id}'
+            self.assertIn(expected_href, content)
+
+        # The old destination must be gone entirely.
+        self.assertNotIn('sales/invoices/', content)
+
+    def test_clicking_a_nozzle_shows_that_exact_nozzles_report(self):
+        nozzle_1 = Nozzle.objects.get(tank=self.regular_tank, number=1)
+        nozzle_19 = Nozzle.objects.get(tank=self.super_tank, number=19)
+
+        self.client.login(username="op1", password="testpass123")
+
+        resp1 = self.client.get(f"/reports/nozzle-ledger/?nozzle_id={nozzle_1.id}")
+        self.assertContains(resp1, "نازل 1 (")
+
+        resp19 = self.client.get(f"/reports/nozzle-ledger/?nozzle_id={nozzle_19.id}")
+        self.assertContains(resp19, "نازل 19 (")

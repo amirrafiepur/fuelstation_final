@@ -35,3 +35,26 @@ def get_monthly_unloading_count(tank, year: int, month: int) -> int:
         working_day__date__year=year,
         working_day__date__month=month,
     ).count()
+
+
+def get_purchase_invoices_in_range(tank, start_date, end_date):
+    """
+    All PurchaseInvoice rows for this tank between start_date and
+    end_date inclusive, oldest first -- the data behind the Purchases
+    section's date-range tables (one call per product/tank, exactly like
+    reports/services.py's per-nozzle/per-tank ledgers). Returns model
+    instances directly (not a row-dict of derived values) since every
+    displayed field -- program_number, tanker_number, quantity,
+    purchase_rate, total_amount -- is either a stored field or, for
+    total_amount, the model's own existing property; there is no
+    additional calculation to perform here.
+    """
+    return (
+        PurchaseInvoice.objects.filter(
+            tank=tank,
+            working_day__date__gte=start_date,
+            working_day__date__lte=end_date,
+        )
+        .select_related("working_day")
+        .order_by("working_day__date", "id")
+    )

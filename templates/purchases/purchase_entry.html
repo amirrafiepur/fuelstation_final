@@ -14,6 +14,16 @@
     {% csrf_token %}
 
     <div class="form-group">
+      <label class="form-label" for="{{ form.program_number.id_for_label }}">{{ form.program_number.label }}</label>
+      {{ form.program_number }}
+      {% for error in form.program_number.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="{{ form.tanker_number.id_for_label }}">{{ form.tanker_number.label }}</label>
+      {{ form.tanker_number }}
+      {% for error in form.tanker_number.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
+    </div>
+    <div class="form-group">
       <label class="form-label" for="{{ form.quantity.id_for_label }}">{{ form.quantity.label }}</label>
       {{ form.quantity }}
       {% for error in form.quantity.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
@@ -23,37 +33,12 @@
       {{ form.purchase_rate }}
       {% for error in form.purchase_rate.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
     </div>
-    <div class="form-group">
-      <label class="form-label" for="{{ form.document_number.id_for_label }}">{{ form.document_number.label }}</label>
-      {{ form.document_number }}
-      {% for error in form.document_number.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="{{ form.tanker_number.id_for_label }}">{{ form.tanker_number.label }}</label>
-      {{ form.tanker_number }}
-      {% for error in form.tanker_number.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="{{ form.tanker_capacity.id_for_label }}">{{ form.tanker_capacity.label }}</label>
-      {{ form.tanker_capacity }}
-      {% for error in form.tanker_capacity.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="{{ form.program_number.id_for_label }}">{{ form.program_number.label }}</label>
-      {{ form.program_number }}
-      {% for error in form.program_number.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="{{ form.unloading_time.id_for_label }}">{{ form.unloading_time.label }}</label>
-      {{ form.unloading_time }}
-      {% for error in form.unloading_time.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
-    </div>
 
     <button type="submit" class="btn">{% if editing %}ذخیره تغییرات{% else %}ثبت خرید{% endif %}</button>
   </form>
 
   <p style="margin-top: 1rem; font-size: 0.8rem;">
-    <a href="{% url 'purchases:invoice_list_for_day' working_day.date|date:'Y-m-d' %}">بازگشت به فهرست خریدهای روز</a>
+    <a href="{% url 'purchases:invoice_list' %}">بازگشت به فهرست خریدها</a>
   </p>
 </div>
 {% endblock %}

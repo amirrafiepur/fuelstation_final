@@ -99,3 +99,31 @@ def build_petroleum_monthly_context(year: int, month: int) -> dict:
         "month": month,
         "rows": rows,
     }
+
+
+def build_purchases_ledger_context(start_date, end_date) -> dict:
+    """
+    Reuses purchases.services.get_purchase_invoices_in_range() verbatim,
+    once per tank -- identical PurchaseInvoice rows to the on-screen
+    Purchases date-range list, split the same way into one entry per
+    product/tank so the print template can render Regular and Super as
+    two separate tables in the same PDF.
+    """
+    from apps.purchases import services as purchase_services
+    from apps.stations.models import Tank
+
+    tanks = Tank.objects.select_related("product").order_by("product__name")
+    tank_rows = [
+        {
+            "tank": tank,
+            "invoices": purchase_services.get_purchase_invoices_in_range(tank, start_date, end_date),
+        }
+        for tank in tanks
+    ]
+
+    return {
+        "station": get_station_metadata(),
+        "tank_rows": tank_rows,
+        "start_date": start_date,
+        "end_date": end_date,
+    }

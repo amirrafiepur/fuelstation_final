@@ -1,8 +1,9 @@
 """
 Purchase views: choosing a working date (reuses the same chronology rules
-as sales -- rule 10), entering a purchase for a tank/product (rule 1: any
-number of these per day), and a purchase invoice list with derived daily
-totals (rule 7).
+as sales -- rule 10) to enter a purchase for a tank/product (rule 1: any
+number of these per day), plus a date-range purchase list -- two separate
+tables, Regular and Super -- with a combined print button, mirroring the
+Nozzle Performance and Petroleum Ledger report sections' UI/workflow.
 
 No business math lives here -- only orchestration of purchases/services.py
 and workday/services.py, per rule 9.
@@ -14,6 +15,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.core.jalali import current_jalali_year_month, jalali_month_bounds
 from apps.sales.forms import WorkingDateForm
 from apps.stations.models import Tank
 from apps.workday import services as workday_services
@@ -31,7 +33,10 @@ def _parse_date(date_str: str) -> datetime.date:
 @login_required
 def choose_working_date(request):
     """
-    Entry point for "خرید" in the nav. Purchases obey the same chronology
+    Lets the operator enter a purchase for a day other than their current
+    global date (the date-range list's own "+ فاکتور جدید" buttons skip
+    straight to purchase_entry for the current global date -- this page
+    is for picking a different one). Purchases obey the same chronology
     system as sales (rule 10) -- this deliberately reuses
     workday_services.can_enter_date() rather than introducing a separate
     date system, and reuses sales' WorkingDateForm since the shape is
@@ -51,7 +56,7 @@ def choose_working_date(request):
                 form.add_error("date", reason)
             else:
                 workday_services.set_global_date(request, date)
-                return redirect("purchases:invoice_list_for_day", date=date.isoformat())
+                return redirect("purchases:invoice_list")
     else:
         form = WorkingDateForm(initial=initial)
 
@@ -64,36 +69,47 @@ def choose_working_date(request):
 
 
 @login_required
-def invoice_list_for_day(request, date):
+def invoice_list(request):
     """
-    Lists all PurchaseInvoice records for this working day (rule 1: there
-    may be zero, one, or many), grouped by tank/product, with the derived
-    daily total per tank (rule 7). Purchases are optional -- an empty list
-    here is a valid, complete state, never a blocking condition (rule 8).
-    """
-    working_day, _ = DailyWorkingDay.objects.get_or_create(date=_parse_date(date))
-    allowed, reason = workday_services.can_enter_date(working_day.date)
-    if not allowed:
-        messages.error(request, reason)
-        return redirect("purchases:choose_date")
+    Purchases section landing page ("خرید" in the nav): a date range
+    (defaulting to the current Jalali month through today, exactly like
+    reports:nozzle_ledger/petroleum_ledger) showing every PurchaseInvoice
+    in that range, as two separate tables -- one per product (rule 1: any
+    number of invoices per day; rule 7's daily total is not shown here
+    since the range can span many days, but every row's own total_amount
+    is the model's existing property, unchanged).
 
-    workday_services.set_global_date(request, working_day.date)
+    Regular/Super stay two independent tables, one per Tank, exactly as
+    before -- this view does not merge or reinterpret that separation,
+    only replaces the single-day window with a date range.
+    """
+    today = workday_services.get_today()
+    jalali_year, jalali_month = current_jalali_year_month(today)
+    start_date, _ = jalali_month_bounds(jalali_year, jalali_month)
+    end_date = today
+
+    if request.GET.get("start_date"):
+        start_date = datetime.date.fromisoformat(request.GET.get("start_date"))
+    if request.GET.get("end_date"):
+        end_date = datetime.date.fromisoformat(request.GET.get("end_date"))
 
     tanks = Tank.objects.select_related("product").order_by("product__name")
-    tank_rows = []
-    for tank in tanks:
-        invoices = PurchaseInvoice.objects.filter(
-            tank=tank, working_day=working_day
-        ).order_by("id")
-        tank_rows.append({
+    tank_rows = [
+        {
             "tank": tank,
-            "invoices": invoices,
-            "daily_total": purchase_services.get_daily_purchase_total(tank, working_day),
-        })
+            "invoices": purchase_services.get_purchase_invoices_in_range(tank, start_date, end_date),
+        }
+        for tank in tanks
+    ]
 
     return render(
-        request, "purchases/invoice_list_for_day.html",
-        {"working_day": working_day, "tank_rows": tank_rows},
+        request, "purchases/invoice_list.html",
+        {
+            "tank_rows": tank_rows,
+            "start_date": start_date,
+            "end_date": end_date,
+            "new_entry_date": workday_services.get_global_date(request),
+        },
     )
 
 
@@ -128,7 +144,7 @@ def purchase_entry(request, date, tank_id):
             invoice.tank = tank
             invoice.save()
             messages.success(request, "فاکتور خرید ثبت شد.")
-            return redirect("purchases:invoice_list_for_day", date=date)
+            return redirect("purchases:invoice_list")
     else:
         form = PurchaseInvoiceForm(initial=initial)
 
@@ -159,7 +175,7 @@ def purchase_edit(request, date, pk):
         if form.is_valid():
             form.save()
             messages.success(request, "فاکتور خرید بروزرسانی شد.")
-            return redirect("purchases:invoice_list_for_day", date=date)
+            return redirect("purchases:invoice_list")
     else:
         form = PurchaseInvoiceForm(instance=invoice)
 

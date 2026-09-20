@@ -49,7 +49,6 @@ def dashboard(request):
 # baked into its path and would just show that same old date again).
 _SECTION_DATE_VIEWS = {
     "sales": ("sales:invoice_detail", []),
-    "purchases": ("purchases:invoice_list_for_day", []),
     "inventory": ("inventory:day_detail", []),
 }
 
@@ -68,7 +67,7 @@ def set_global_date(request):
       "<str:date>/..."), so simply reloading "the same page" would just
       show that old date again with nothing actually changed. Instead
       this redirects to that section's own top-level date view
-      (invoice_detail / invoice_list_for_day / day_detail) for the newly
+      (invoice_detail / day_detail) for the newly
       picked date -- record-specific sub-pages (editing one purchase
       invoice, one tank's opening entry, one nozzle's form) don't carry
       a sensible equivalent under a different date, so landing on the

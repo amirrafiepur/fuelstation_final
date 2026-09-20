@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load jalali_tags %}
+{% load static %}
+{% block title %}خرید — فهرست{% endblock %}
+{% block extra_head %}
+<script src="{% static 'js/jalali.js' %}"></script>
+{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+    <h2 class="panel__title" style="margin:0;"> فهرست فاکتور های خرید </h2>
+    <a href="{% url 'printing:purchases_ledger_print' %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}"
+       target="_blank" class="btn" style="display:inline-block; width:auto; padding:0.4rem 0.9rem; font-size:0.85rem;">
+      چاپ / PDF
+    </a>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+      <label class="form-label">از تاریخ</label>
+      <input type="text" inputmode="numeric" class="form-input jalali-date-input" placeholder="۱۴۰۵/۰۱/۰۱"
+             value="{{ start_date|jalali }}"
+             data-nav-template="?start_date=__ISO__&end_date={{ end_date|date:'Y-m-d' }}">
+    </div>
+    <div>
+      <label class="form-label">تا تاریخ</label>
+      <input type="text" inputmode="numeric" class="form-input jalali-date-input" placeholder="۱۴۰۵/۰۱/۰۱"
+             value="{{ end_date|jalali }}"
+             data-nav-template="?start_date={{ start_date|date:'Y-m-d' }}&end_date=__ISO__">
+    </div>
+  </div>
+
+  {% for row in tank_rows %}
+  <div style="margin-bottom: 1.75rem;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
+      <h3 style="margin:0; font-size:1rem;">{{ row.tank.product.name }}</h3>
+      <a href="{% url 'purchases:purchase_entry' new_entry_date|date:'Y-m-d' row.tank.id %}"
+         class="btn" style="display:inline-block; width:auto; padding:0.4rem 0.9rem; font-size:0.85rem;">
+        + فاکتور جدید
+      </a>
+    </div>
+
+    {% if row.invoices %}
+    <table style="width:100%; border-collapse: collapse; font-size: 0.85rem;">
+      <thead>
+        <tr style="border-bottom: 2px solid var(--color-border); text-align: right;">
+          <th style="padding: 0.4rem;">تاریخ بارنامه</th>
+          <th style="padding: 0.4rem;">شماره ی بارنامه</th>
+          <th style="padding: 0.4rem;">شماره ی نفتکش</th>
+          <th style="padding: 0.4rem;">مقدار</th>
+          <th style="padding: 0.4rem;">نرخ</th>
+          <th style="padding: 0.4rem;">مبلغ کل</th>
+          <th style="padding: 0.4rem;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in row.invoices %}
+        <tr style="border-bottom: 1px solid var(--color-border);">
+          <td style="padding: 0.4rem;" class="numeric">{{ inv.working_day.date|jalali }}</td>
+          <td style="padding: 0.4rem;">{{ inv.program_number|default:"—" }}</td>
+          <td style="padding: 0.4rem;">{{ inv.tanker_number|default:"—" }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ inv.quantity }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ inv.purchase_rate }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ inv.total_amount }}</td>
+          <td style="padding: 0.4rem;">
+            <a href="{% url 'purchases:purchase_edit' inv.working_day.date|date:'Y-m-d' inv.pk %}">ویرایش</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p style="color: var(--color-ink-muted); font-size: 0.85rem;">در بازه انتخاب‌شده خریدی برای این محصول ثبت نشده است.</p>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <p style="margin-top: 1rem; font-size: 0.8rem;">
+    <a href="{% url 'purchases:choose_date' %}">ثبت خرید برای روز دیگر</a>
+  </p>
+</div>
+<script>document.addEventListener('DOMContentLoaded', function () { JalaliCalendar.bindNavInputs(); });</script>
+{% endblock %}

@@ -89,3 +89,13 @@ def petroleum_monthly_print(request):
     context = printing_services.build_petroleum_monthly_context(year, month)
     filename = f"tank-monthly-{year}-{month:02d}.pdf"
     return _render_pdf_response("printing/petroleum_monthly_print.html", context, filename)
+
+
+@login_required
+def purchases_ledger_print(request):
+    start_date = datetime.date.fromisoformat(request.GET["start_date"])
+    end_date = datetime.date.fromisoformat(request.GET["end_date"])
+
+    context = printing_services.build_purchases_ledger_context(start_date, end_date)
+    filename = f"purchases-{start_date}-{end_date}.pdf"
+    return _render_pdf_response("printing/purchases_ledger_print.html", context, filename)

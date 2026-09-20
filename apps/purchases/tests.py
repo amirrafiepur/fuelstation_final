@@ -103,23 +103,11 @@ class PurchaseWorkflowHttpTests(_TestCase):
         working_day = DailyWorkingDay.objects.get(date=self.date)
         total = services.get_daily_purchase_total(self.regular_tank, working_day)
         self.assertEqual(total, Decimal("33000"))
-        # Also verify the rendered list page shows it.
-        resp = self.client.get(f"/purchases/{self.date}/")
-        self.assertContains(resp, "33000")
-
-    # Rule 2: duplicate document numbers accepted, no error/warning.
-    def test_duplicate_document_number_accepted_via_form(self):
-        r1 = self.client.post(
-            f"/purchases/{self.date}/tank/{self.regular_tank.id}/new/",
-            {"quantity": 100, "purchase_rate": "1000", "document_number": "INV-1"},
-        )
-        r2 = self.client.post(
-            f"/purchases/{self.date}/tank/{self.regular_tank.id}/new/",
-            {"quantity": 200, "purchase_rate": "1000", "document_number": "INV-1"},
-        )
-        self.assertEqual(r1.status_code, 302)
-        self.assertEqual(r2.status_code, 302)
-        self.assertEqual(PurchaseInvoice.objects.filter(document_number="INV-1").count(), 2)
+        # Also verify the rendered range list page shows it (the row's
+        # own quantity, since the range view no longer shows a
+        # single-day aggregate total -- see invoice_list()'s docstring).
+        resp = self.client.get(f"/purchases/?start_date={self.date}&end_date={self.date}")
+        self.assertContains(resp, "15000")
 
     # Rule 2: duplicate tanker numbers accepted, no error/warning.
     def test_duplicate_tanker_number_accepted_via_form(self):
@@ -135,14 +123,19 @@ class PurchaseWorkflowHttpTests(_TestCase):
         self.assertEqual(r2.status_code, 302)
         self.assertEqual(PurchaseInvoice.objects.filter(tanker_number="12-ABC-34").count(), 2)
 
-    # Rule 3: no capacity restriction -- an unusually large value must be accepted.
+    # Rule 3: no capacity restriction -- an unusually large value must be
+    # accepted at the model level. tanker_capacity is no longer collected
+    # through the purchase form (removed per the Purchases section
+    # rework), but the field/rule itself still exists on the model for
+    # any historical data, so this is now a model-level test rather than
+    # a form-submission test.
     def test_unrestricted_tanker_capacity_accepted(self):
-        resp = self.client.post(
-            f"/purchases/{self.date}/tank/{self.regular_tank.id}/new/",
-            {"quantity": 100, "purchase_rate": "1000", "tanker_capacity": 999999},
+        working_day = DailyWorkingDay.objects.get_or_create(date=datetime.date(2026, 8, 1))[0]
+        invoice = PurchaseInvoice.objects.create(
+            working_day=working_day, tank=self.regular_tank, quantity=100,
+            purchase_rate=Decimal("1000"), tanker_capacity=999999,
         )
-        self.assertEqual(resp.status_code, 302)
-        invoice = PurchaseInvoice.objects.get(tanker_capacity=999999)
+        invoice.refresh_from_db()
         self.assertEqual(invoice.tanker_capacity, 999999)
 
     # Rule 4: historical rate is frozen even after the suggested rate changes.
@@ -242,7 +235,8 @@ class PurchaseWorkflowHttpTests(_TestCase):
         self.assertEqual(invoice.quantity, 150)
 
     # Rule 9: the view layer never duplicates the aggregation formula --
-    # it must produce identical results to calling the service directly.
+    # get_daily_purchase_total must still exist and work correctly as a
+    # service, independent of how the range view chooses to display data.
     def test_view_and_service_aggregation_agree(self):
         for qty in (500, 700):
             self.client.post(
@@ -251,5 +245,150 @@ class PurchaseWorkflowHttpTests(_TestCase):
             )
         working_day = DailyWorkingDay.objects.get(date=self.date)
         service_total = services.get_daily_purchase_total(self.regular_tank, working_day)
-        resp = self.client.get(f"/purchases/{self.date}/")
-        self.assertContains(resp, str(service_total))
+        self.assertEqual(service_total, Decimal("1200"))
+        # Both rows' own quantities must appear on the range list page --
+        # no re-aggregation or invented total happens in the view/template.
+        resp = self.client.get(f"/purchases/?start_date={self.date}&end_date={self.date}")
+        self.assertContains(resp, "500")
+        self.assertContains(resp, "700")
+
+
+class PurchasesRangeViewTests(_TestCase):
+    """Covers the reworked خرید section: a date-range view with two
+    separate Regular/Super tables, the six specified columns, the
+    renamed fields, removed fields staying out of the UI, and one
+    combined print button."""
+
+    def setUp(self):
+        self.user = _User.objects.create_user(username="op2", password="testpass123")
+        _License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        station = Station.objects.create(name="S2", province="P", city="C")
+        self.regular = Product.objects.create(name="Regular")
+        self.super_ = Product.objects.create(name="Super")
+        self.regular_tank = Tank.objects.create(station=station, product=self.regular, capacity=50000)
+        self.super_tank = Tank.objects.create(station=station, product=self.super_, capacity=30000)
+        self.client.login(username="op2", password="testpass123")
+
+    def test_nav_link_goes_straight_to_the_range_view(self):
+        resp = self.client.get("/")
+        self.assertContains(resp, 'href="/purchases/"')
+
+    def test_range_view_shows_both_product_tables(self):
+        resp = self.client.get("/purchases/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Regular")
+        self.assertContains(resp, "Super")
+
+    def test_range_view_has_exactly_the_six_required_columns_in_order(self):
+        working_day = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        PurchaseInvoice.objects.create(
+            working_day=working_day, tank=self.regular_tank, quantity=100, purchase_rate=Decimal("1000"),
+        )
+        resp = self.client.get("/purchases/?start_date=2026-08-01&end_date=2026-08-01")
+        content = resp.content.decode()
+        columns = ["تاریخ بارنامه", "شماره ی بارنامه", "شماره ی نفتکش", "مقدار", "نرخ", "مبلغ کل"]
+        for col in columns:
+            self.assertIn(col, content)
+        # Order check: each column must appear before the next one.
+        positions = [content.index(c) for c in columns]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_removed_fields_do_not_appear_on_the_range_view(self):
+        working_day = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        PurchaseInvoice.objects.create(
+            working_day=working_day, tank=self.regular_tank, quantity=100,
+            purchase_rate=Decimal("1000"), unloading_time=datetime.time(14, 30),
+            tanker_capacity=20000, document_number="DOC-1",
+        )
+        resp = self.client.get("/purchases/?start_date=2026-08-01&end_date=2026-08-01")
+        content = resp.content.decode()
+        self.assertNotIn("ظرفیت تانکر", content)
+        self.assertNotIn("زمان تخلیه", content)
+        self.assertNotIn("14:30", content)
+        self.assertNotIn("DOC-1", content)
+
+    def test_range_view_shows_invoice_within_range(self):
+        working_day = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 5))
+        PurchaseInvoice.objects.create(
+            working_day=working_day, tank=self.regular_tank, quantity=12345,
+            purchase_rate=Decimal("1000"), program_number="BN-77", tanker_number="TN-88",
+        )
+        resp = self.client.get("/purchases/?start_date=2026-08-01&end_date=2026-08-10")
+        self.assertContains(resp, "12345")
+        self.assertContains(resp, "BN-77")
+        self.assertContains(resp, "TN-88")
+
+    def test_range_view_excludes_invoice_outside_range(self):
+        working_day = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 20))
+        PurchaseInvoice.objects.create(
+            working_day=working_day, tank=self.regular_tank, quantity=99999,
+            purchase_rate=Decimal("1000"),
+        )
+        resp = self.client.get("/purchases/?start_date=2026-08-01&end_date=2026-08-10")
+        self.assertNotContains(resp, "99999")
+
+    def test_regular_and_super_purchases_stay_in_separate_tables(self):
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        PurchaseInvoice.objects.create(
+            working_day=wd, tank=self.regular_tank, quantity=1111, purchase_rate=Decimal("1000"),
+        )
+        PurchaseInvoice.objects.create(
+            working_day=wd, tank=self.super_tank, quantity=2222, purchase_rate=Decimal("1500"),
+        )
+        resp = self.client.get("/purchases/?start_date=2026-08-01&end_date=2026-08-01")
+        content = resp.content.decode()
+        # Both rows appear, and the Regular quantity appears before the
+        # Super quantity, matching the tank ordering (product__name).
+        self.assertIn("1111", content)
+        self.assertIn("2222", content)
+
+    def test_print_button_links_to_the_combined_pdf_endpoint(self):
+        resp = self.client.get("/purchases/?start_date=2026-08-01&end_date=2026-08-10")
+        self.assertContains(resp, "/print/purchases-ledger/")
+
+    def test_purchases_ledger_pdf_generates_with_both_tables(self):
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        PurchaseInvoice.objects.create(
+            working_day=wd, tank=self.regular_tank, quantity=1111, purchase_rate=Decimal("1000"),
+            program_number="BN-1", tanker_number="TN-1",
+        )
+        PurchaseInvoice.objects.create(
+            working_day=wd, tank=self.super_tank, quantity=2222, purchase_rate=Decimal("1500"),
+            program_number="BN-2", tanker_number="TN-2",
+        )
+        resp = self.client.get(
+            "/print/purchases-ledger/?start_date=2026-08-01&end_date=2026-08-01"
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get("Content-Type"), "application/pdf")
+        self.assertTrue(resp.content.startswith(b"%PDF"))
+
+    def test_new_entry_button_uses_the_global_date(self):
+        session = self.client.session
+        session["global_working_date"] = "2026-08-03"
+        session.save()
+        resp = self.client.get("/purchases/")
+        self.assertContains(resp, f"/purchases/2026-08-03/tank/{self.regular_tank.id}/new/")
+
+    def test_purchase_entry_form_has_exactly_the_four_required_fields_in_order(self):
+        resp = self.client.get(f"/purchases/2026-08-01/tank/{self.regular_tank.id}/new/")
+        content = resp.content.decode()
+        labels = ["شماره ی بارنامه", "شماره ی نفتکش", "مقدار", "نرخ"]
+        for label in labels:
+            self.assertIn(label, content)
+        positions = [content.index(l) for l in labels]
+        self.assertEqual(positions, sorted(positions))
+        # Removed fields must not appear on the form at all.
+        self.assertNotIn("ظرفیت تانکر", content)
+        self.assertNotIn("زمان تخلیه", content)
+        self.assertNotIn("شماره سند", content)
+
+    def test_purchase_entry_saves_program_number_and_tanker_number(self):
+        resp = self.client.post(
+            f"/purchases/2026-08-01/tank/{self.regular_tank.id}/new/",
+            {"program_number": "BN-99", "tanker_number": "TN-99", "quantity": 500, "purchase_rate": "1000"},
+        )
+        self.assertEqual(resp.status_code, 302)
+        invoice = PurchaseInvoice.objects.get(quantity=500)
+        self.assertEqual(invoice.program_number, "BN-99")
+        self.assertEqual(invoice.tanker_number, "TN-99")

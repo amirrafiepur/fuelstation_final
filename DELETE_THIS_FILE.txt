@@ -1,0 +1,1 @@
+DELETE THIS FILE: templates/purchases/invoice_list_for_day.html

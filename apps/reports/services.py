@@ -69,6 +69,63 @@ def nozzle_performance_ledger(nozzle: Nozzle, start_date, end_date):
     return rows
 
 
+def all_nozzles_performance_summary(start_date, end_date):
+    """
+    "کارکرد تمام نازل‌ها": one row per working day in [start_date,
+    end_date], each row being the SUM across every nozzle at the station
+    (not per-nozzle, unlike nozzle_performance_ledger() above -- this is
+    a deliberately separate function/view per that report's own
+    requirements; nozzle_performance_ledger() itself is untouched).
+
+    Reuses NozzleSale's existing operation/mechanical_sales/total_amount
+    properties verbatim for every sale on that day -- no new formulas.
+    Per-product totals (e.g. Regular vs Super) are grouped by the actual
+    Product row via nozzle.tank.product, never by a hardcoded product
+    name, so this works unmodified regardless of how many products or
+    what they're called (see apps/stations/models.py's Product
+    docstring: "product names must never be hardcoded into calculation
+    logic").
+
+    Each row's "products" key maps Product.id -> that product's summed
+    mechanical_sales for the day, letting the view/template pick out
+    "فروش فرآورده معمولی"/"فروش فرآورده سوپر" (or any other product) by
+    the actual Product objects rather than by name string.
+    """
+    rows = []
+    for wd in DailyWorkingDay.objects.filter(
+        date__gte=start_date, date__lte=end_date
+    ).order_by("date"):
+        sales = NozzleSale.objects.filter(sales_invoice__working_day=wd).select_related(
+            "nozzle__tank__product"
+        )
+
+        total_operation = Decimal("0")
+        total_test = Decimal("0")
+        total_mechanical_sales = Decimal("0")
+        total_amount = Decimal("0")
+        by_product = {}
+
+        for sale in sales:
+            total_operation += sale.operation
+            total_test += sale.test
+            total_mechanical_sales += sale.mechanical_sales
+            total_amount += sale.total_amount
+
+            product = sale.nozzle.tank.product
+            by_product[product.id] = by_product.get(product.id, Decimal("0")) + sale.mechanical_sales
+
+        if sales.exists():
+            rows.append({
+                "date": wd.date,
+                "total_operation": total_operation,
+                "total_test": total_test,
+                "total_mechanical_sales": total_mechanical_sales,
+                "total_amount": total_amount,
+                "by_product": by_product,
+            })
+    return rows
+
+
 def nozzle_performance_monthly(nozzle: Nozzle, year: int, month: int):
     """
     Monthly Nozzle Performance Report: one row per nozzle per month,

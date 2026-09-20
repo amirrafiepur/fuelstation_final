@@ -46,6 +46,38 @@ def build_nozzle_ledger_context(nozzle, start_date, end_date) -> dict:
     }
 
 
+def build_all_nozzles_performance_context(start_date, end_date) -> dict:
+    """
+    Reuses reports.services.all_nozzles_performance_summary() verbatim --
+    identical per-day station-wide totals to the on-screen کارکرد تمام
+    نازل‌ها report. Products are ordered by name, same as the on-screen
+    view, so the printed per-product columns line up with whatever the
+    on-screen table shows -- never a hardcoded "Regular"/"Super" name
+    anywhere in this layer either. Each row's per-product totals are
+    attached as a same-order "product_totals" list, exactly mirroring
+    reports/views.py:all_nozzles_performance()'s own context-shaping, so
+    the print template needs no dict-by-variable-key lookup either.
+    """
+    from decimal import Decimal
+
+    from apps.stations.models import Product
+
+    rows = report_services.all_nozzles_performance_summary(start_date, end_date)
+    products = Product.objects.order_by("name")
+    for row in rows:
+        row["product_totals"] = [
+            row["by_product"].get(product.id, Decimal("0")) for product in products
+        ]
+
+    return {
+        "station": get_station_metadata(),
+        "products": products,
+        "start_date": start_date,
+        "end_date": end_date,
+        "rows": rows,
+    }
+
+
 def build_nozzle_monthly_context(year: int, month: int) -> dict:
     """Reuses reports.services.nozzle_performance_monthly() per nozzle --
     identical rows/totals to the on-screen monthly report."""

@@ -4,12 +4,13 @@ aggregations and render them without any business logic in the template.
 """
 
 import datetime
+from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
 from apps.core.jalali import current_jalali_year_month, jalali_month_bounds
-from apps.stations.models import Nozzle, Tank
+from apps.stations.models import Nozzle, Product, Tank
 from apps.workday import services as workday_services
 
 from . import services as report_services
@@ -57,6 +58,54 @@ def nozzle_performance_ledger(request, nozzle_id=None):
             "nozzles": nozzles,
             "selected_nozzle": selected_nozzle,
             "rows": rows,
+            "start_date": start_date,
+            "end_date": end_date,
+        },
+    )
+
+
+@login_required
+def all_nozzles_performance(request):
+    """
+    کارکرد تمام نازل‌ها: one row per working day, each the SUM across
+    every nozzle -- a deliberately separate view/URL from
+    nozzle_performance_ledger() above (which is untouched), per that
+    report's own requirement not to reuse the per-nozzle view.
+    """
+    today = workday_services.get_today()
+
+    # Default date range: current JALALI month -- identical convention
+    # to nozzle_performance_ledger()/petroleum_inventory_operations_ledger()
+    # above.
+    jalali_year, jalali_month = current_jalali_year_month(today)
+    start_date, _ = jalali_month_bounds(jalali_year, jalali_month)
+    end_date = today
+
+    if request.GET.get("start_date"):
+        start_date = datetime.date.fromisoformat(request.GET.get("start_date"))
+    if request.GET.get("end_date"):
+        end_date = datetime.date.fromisoformat(request.GET.get("end_date"))
+
+    rows = report_services.all_nozzles_performance_summary(start_date, end_date)
+
+    # Products in a stable order (matches the ordering used elsewhere,
+    # e.g. the per-nozzle ledger's own dropdown) -- never hardcoded names,
+    # so "فروش فرآورده معمولی"/"فروش فرآورده سوپر" map to whichever two
+    # products actually exist, in this order. Each row gets its
+    # per-product totals attached as a same-order list ("product_totals")
+    # so the template can iterate rows/products in parallel without
+    # needing a dict-by-variable-key template filter.
+    products = Product.objects.order_by("name")
+    for row in rows:
+        row["product_totals"] = [
+            row["by_product"].get(product.id, Decimal("0")) for product in products
+        ]
+
+    return render(
+        request, "reports/all_nozzles_performance.html",
+        {
+            "rows": rows,
+            "products": products,
             "start_date": start_date,
             "end_date": end_date,
         },

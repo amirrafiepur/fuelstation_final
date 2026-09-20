@@ -570,3 +570,158 @@ class NozzleLedgerNewColumnsTests(TestCase):
         # Day 2: daily_total = 50, cumulative = 60 + 50 = 110.
         self.assertContains(resp, "60.00")
         self.assertContains(resp, "110.00")
+
+
+class AllNozzlesPerformanceTests(TestCase):
+    """
+    Covers کارکرد تمام نازل‌ها: a dedicated, separate view/URL/service
+    function from گزارش کارکرد هر نازل (nozzle_performance_ledger),
+    which these tests also confirm remains completely untouched and
+    reachable at its own URL.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="op_all", password="testpass123")
+        License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        station = Station.objects.create(name="S_all", province="P", city="C")
+        self.regular = Product.objects.create(name="Regular")
+        self.super_ = Product.objects.create(name="Super")
+        self.regular_tank = Tank.objects.create(station=station, product=self.regular, capacity=50000)
+        self.super_tank = Tank.objects.create(station=station, product=self.super_, capacity=30000)
+        # A realistic (smaller) mix of Regular/Super nozzles rather than
+        # all 26, to keep fixtures readable -- the aggregation logic
+        # itself doesn't care about the exact count.
+        self.regular_nozzles = [
+            Nozzle.objects.create(tank=self.regular_tank, number=n) for n in range(1, 4)
+        ]
+        self.super_nozzles = [
+            Nozzle.objects.create(tank=self.super_tank, number=n) for n in range(19, 21)
+        ]
+        self.client.login(username="op_all", password="testpass123")
+
+    def _sell(self, nozzle, wd, previous_meter, new_meter, test=Decimal("0"), rate=Decimal("1200")):
+        invoice = SalesInvoice.objects.get_or_create(working_day=wd, defaults={"operator": self.user})[0]
+        return NozzleSale.objects.create(
+            sales_invoice=invoice, nozzle=nozzle,
+            previous_meter=previous_meter, new_meter=new_meter, test=test, sales_rate=rate,
+        )
+
+    def test_nav_link_points_to_the_new_dedicated_view(self):
+        resp = self.client.get("/")
+        self.assertContains(resp, 'href="/reports/all-nozzles/"')
+
+    def test_existing_per_nozzle_view_is_unaffected_and_still_reachable(self):
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        self._sell(self.regular_nozzles[0], wd, Decimal("0"), Decimal("50"))
+        resp = self.client.get(f"/reports/nozzle-ledger/?nozzle_id={self.regular_nozzles[0].id}"
+                                "&start_date=2026-08-01&end_date=2026-08-01")
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "گزارش کارکرد هر نازل")
+
+    def test_service_sums_across_all_nozzles_for_one_day(self):
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        # Regular nozzle 1: operation=50, test=0 -> mech=50
+        self._sell(self.regular_nozzles[0], wd, Decimal("0"), Decimal("50"))
+        # Regular nozzle 2: operation=30, test=5 -> mech=25
+        self._sell(self.regular_nozzles[1], wd, Decimal("0"), Decimal("30"), test=Decimal("5"))
+        # Super nozzle: operation=20, test=0 -> mech=20
+        self._sell(self.super_nozzles[0], wd, Decimal("0"), Decimal("20"), rate=Decimal("1500"))
+
+        from apps.reports import services as report_services
+        rows = report_services.all_nozzles_performance_summary(
+            datetime.date(2026, 8, 1), datetime.date(2026, 8, 1)
+        )
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(row["total_operation"], Decimal("100"))       # 50+30+20
+        self.assertEqual(row["total_test"], Decimal("5"))              # 0+5+0
+        self.assertEqual(row["total_mechanical_sales"], Decimal("95")) # 50+25+20
+        self.assertEqual(
+            row["total_amount"],
+            Decimal("50") * Decimal("1200") + Decimal("25") * Decimal("1200") + Decimal("20") * Decimal("1500"),
+        )
+
+    def test_per_product_split_is_correct(self):
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        self._sell(self.regular_nozzles[0], wd, Decimal("0"), Decimal("50"))   # Regular mech=50
+        self._sell(self.regular_nozzles[1], wd, Decimal("0"), Decimal("30"))   # Regular mech=30
+        self._sell(self.super_nozzles[0], wd, Decimal("0"), Decimal("20"))     # Super mech=20
+
+        from apps.reports import services as report_services
+        rows = report_services.all_nozzles_performance_summary(
+            datetime.date(2026, 8, 1), datetime.date(2026, 8, 1)
+        )
+        row = rows[0]
+        self.assertEqual(row["by_product"][self.regular.id], Decimal("80"))  # 50+30
+        self.assertEqual(row["by_product"][self.super_.id], Decimal("20"))
+
+    def test_one_row_per_day_across_a_range(self):
+        wd1 = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        wd2 = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 2))
+        self._sell(self.regular_nozzles[0], wd1, Decimal("0"), Decimal("50"))
+        self._sell(self.regular_nozzles[0], wd2, Decimal("50"), Decimal("120"))
+
+        from apps.reports import services as report_services
+        rows = report_services.all_nozzles_performance_summary(
+            datetime.date(2026, 8, 1), datetime.date(2026, 8, 2)
+        )
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["date"], datetime.date(2026, 8, 1))
+        self.assertEqual(rows[1]["date"], datetime.date(2026, 8, 2))
+        self.assertEqual(rows[0]["total_operation"], Decimal("50"))
+        self.assertEqual(rows[1]["total_operation"], Decimal("70"))
+
+    def test_days_with_no_sales_produce_no_row(self):
+        # A day with zero NozzleSale rows across the whole station must
+        # not appear at all (never a fabricated all-zero row).
+        DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        from apps.reports import services as report_services
+        rows = report_services.all_nozzles_performance_summary(
+            datetime.date(2026, 8, 1), datetime.date(2026, 8, 1)
+        )
+        self.assertEqual(rows, [])
+
+    def test_days_outside_the_range_are_excluded(self):
+        wd_in = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        wd_out = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 10))
+        self._sell(self.regular_nozzles[0], wd_in, Decimal("0"), Decimal("50"))
+        self._sell(self.regular_nozzles[0], wd_out, Decimal("50"), Decimal("999"))
+
+        from apps.reports import services as report_services
+        rows = report_services.all_nozzles_performance_summary(
+            datetime.date(2026, 8, 1), datetime.date(2026, 8, 1)
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["total_operation"], Decimal("50"))
+
+    def test_page_shows_all_seven_columns_in_order(self):
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        self._sell(self.regular_nozzles[0], wd, Decimal("0"), Decimal("50"))
+        self._sell(self.super_nozzles[0], wd, Decimal("0"), Decimal("20"))
+
+        resp = self.client.get("/reports/all-nozzles/?start_date=2026-08-01&end_date=2026-08-01")
+        content = resp.content.decode()
+        labels = [
+            "تاریخ", "جمع کارکرد", "جمع آزمایش", "جمع فروش مکانیکی",
+            "فروش فرآورده Regular", "فروش فرآورده Super", "مجموع مبلغ کل",
+        ]
+        for label in labels:
+            self.assertIn(label, content)
+        positions = [content.index(l) for l in labels]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_print_button_links_to_the_dedicated_print_endpoint(self):
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        self._sell(self.regular_nozzles[0], wd, Decimal("0"), Decimal("50"))
+        resp = self.client.get("/reports/all-nozzles/?start_date=2026-08-01&end_date=2026-08-01")
+        self.assertContains(resp, "/print/all-nozzles/")
+
+    def test_print_pdf_generates_with_correct_content(self):
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        self._sell(self.regular_nozzles[0], wd, Decimal("0"), Decimal("50"))
+        self._sell(self.super_nozzles[0], wd, Decimal("0"), Decimal("20"))
+
+        resp = self.client.get("/print/all-nozzles/?start_date=2026-08-01&end_date=2026-08-01")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get("Content-Type"), "application/pdf")
+        self.assertTrue(resp.content.startswith(b"%PDF"))

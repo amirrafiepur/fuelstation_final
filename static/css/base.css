@@ -390,6 +390,19 @@ a { color: inherit; }
   }
 }
 
+/* Tank inventory breakdown (موجودی واقعی/غیرواقعی/کل/کسری/سرک): a
+   genuinely responsive grid using auto-fill/minmax rather than a fixed
+   column count in an inline style, so it wraps naturally on narrow
+   (mobile) screens without needing its own media query -- an inline
+   style's grid-template-columns can't be overridden by a class-based
+   media query due to CSS specificity. */
+.inventory-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
 .panel {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -505,6 +518,19 @@ a { color: inherit; }
   font-family: var(--font-body);
   font-size: 0.95rem;
   background: var(--color-bg);
+}
+
+/* Read-only, system-calculated values shown alongside an editable form
+   (e.g. the automatic breakdown fields on the actual-inventory entry
+   page) -- styled as a filled, non-interactive field rather than a
+   normal empty/editable input, so it's visually clear at a glance which
+   fields the operator can and cannot type into. */
+.form-input--locked {
+  background: var(--color-border);
+  color: var(--color-ink-muted);
+  cursor: not-allowed;
+  display: flex;
+  align-items: center;
 }
 
 .form-input:focus {

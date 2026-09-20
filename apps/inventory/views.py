@@ -164,8 +164,19 @@ def opening_inventory_entry(request, date, tank_id):
 def actual_inventory_entry(request, date, tank_id):
     """
     Entry/edit of the one manually-entered field: Actual Inventory.
-    Everything else (Total/Theoretical Inventory, Shortage, Overage) is
-    computed afterward via inventory/services.py and never entered here.
+    Everything else (Previous Balance, Daily Purchase, Test Return, Total
+    Inventory, Daily Sales, Theoretical Inventory) is computed via the
+    existing inventory/services.py functions and only ever displayed
+    read-only alongside the form -- never entered here, and never
+    recomputed with different logic than the rest of the app already
+    uses (day_detail, printing, reports all call these same functions).
+
+    These derived values do not depend on this day's own Actual
+    Inventory (only Shortage/Overage do, which this form does not show),
+    so they are safe to compute and display even before Actual Inventory
+    has ever been entered for this tank/day -- unlike
+    compute_tank_inventory(), which requires a TankInventory row to
+    already exist and would raise ValueError on a brand-new entry.
     """
     working_day, _ = DailyWorkingDay.objects.get_or_create(date=_parse_date(date))
     allowed, reason = workday_services.can_enter_date(working_day.date)
@@ -175,6 +186,15 @@ def actual_inventory_entry(request, date, tank_id):
 
     tank = get_object_or_404(Tank, pk=tank_id)
     existing = TankInventory.objects.filter(tank=tank, working_day=working_day).first()
+
+    previous_balance, previous_overage = inventory_services.get_previous_balance_and_overage(
+        tank, working_day
+    )
+    daily_purchase = inventory_services.get_daily_purchase_total(tank, working_day)
+    test_return = inventory_services.get_test_return(tank, working_day)
+    daily_sales = inventory_services.get_daily_sales(tank, working_day)
+    total_inventory = previous_balance + daily_purchase + test_return + previous_overage
+    theoretical_inventory = total_inventory - daily_sales
 
     if request.method == "POST":
         form = ActualInventoryForm(request.POST, instance=existing)
@@ -190,5 +210,13 @@ def actual_inventory_entry(request, date, tank_id):
 
     return render(
         request, "inventory/actual_inventory_entry.html",
-        {"form": form, "working_day": working_day, "tank": tank},
+        {
+            "form": form, "working_day": working_day, "tank": tank,
+            "previous_balance": previous_balance,
+            "daily_purchase": daily_purchase,
+            "test_return": test_return,
+            "total_inventory": total_inventory,
+            "daily_sales": daily_sales,
+            "theoretical_inventory": theoretical_inventory,
+        },
     )

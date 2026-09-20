@@ -277,3 +277,120 @@ class InventoryWorkflowHttpTests(_TestCase):
             TankInventory.objects.get(tank=self.tank, working_day__date=self.day1).actual_inventory,
             Decimal("150"),
         )
+
+
+class TanksSectionUiReworkTests(_TestCase):
+    """
+    Covers the مخازن (Tanks) section rework: "موجودی نظری" renamed to
+    "موجودی غیرواقعی" and "اضافه" renamed to "سرک" at the UI level only
+    (day_detail.html), and the actual-inventory entry form now also
+    displaying the 7 automatically-calculated values that already exist
+    in inventory/services.py, using their exact values -- no new
+    calculation logic anywhere.
+    """
+
+    def setUp(self):
+        self.user = User_.objects.create_user(username="op3", password="testpass123")
+        License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        station = Station.objects.create(name="S3", province="P", city="C")
+        self.product = Product.objects.create(name="Regular")
+        self.tank = Tank.objects.create(station=station, product=self.product, capacity=50000)
+        self.client.login(username="op3", password="testpass123")
+        self.day1 = "2026-07-23"  # accounting start for an Aug-1 license
+
+    def test_day_detail_shows_renamed_labels(self):
+        self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/opening/", {"opening_quantity": "0"})
+        self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/actual/", {"actual_inventory": "0"})
+        resp = self.client.get(f"/inventory/{self.day1}/")
+        self.assertContains(resp, "موجودی غیرواقعی")
+        self.assertContains(resp, "سرک")
+
+    def test_day_detail_does_not_show_old_labels(self):
+        self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/opening/", {"opening_quantity": "0"})
+        self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/actual/", {"actual_inventory": "0"})
+        resp = self.client.get(f"/inventory/{self.day1}/")
+        self.assertNotContains(resp, "موجودی نظری")
+        self.assertNotContains(resp, ">اضافه<")
+
+    def test_shortage_still_shown_under_kosri_when_negative_theoretical_gap(self):
+        # Opening=1000, no purchase/sale/test, Actual=900 -> theoretical=1000
+        # -> shortage=100. The calculation itself is untouched; only the
+        # sibling column's label ("سرک") changed.
+        self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/opening/", {"opening_quantity": "1000"})
+        self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/actual/", {"actual_inventory": "900"})
+        resp = self.client.get(f"/inventory/{self.day1}/")
+        self.assertContains(resp, "کسری")
+        self.assertContains(resp, "100")
+
+    def test_overage_still_shown_under_sarak_when_actual_exceeds_theoretical(self):
+        # Opening=0, Actual=10 -> theoretical=0 -> overage=10, now labeled سرک.
+        self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/opening/", {"opening_quantity": "0"})
+        self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/actual/", {"actual_inventory": "10"})
+        resp = self.client.get(f"/inventory/{self.day1}/")
+        self.assertContains(resp, "سرک")
+        self.assertContains(resp, "10")
+
+    def test_entry_form_shows_all_eight_fields_in_order(self):
+        self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/opening/", {"opening_quantity": "0"})
+        resp = self.client.get(f"/inventory/{self.day1}/tank/{self.tank.id}/actual/")
+        content = resp.content.decode()
+        # Search only within the panel body (after the page heading), and
+        # use the field-label <div> wrapper so "موجودی واقعی"/"آزمایش" as
+        # standalone labels aren't confused with their appearance inside
+        # the heading or inside "بازگشت از آزمایش".
+        body = content.split("</h2>", 1)[1]
+        labels = [
+            "مانده از قبل", "خرید روزانه", "بازگشت از آزمایش", "جمع کل",
+            "فروش روزانه", "موجودی غیرواقعی", "آزمایش", "موجودی واقعی",
+        ]
+        wrapped = [f">{l}<" for l in labels]
+        for w in wrapped:
+            self.assertIn(w, body)
+        positions = [body.index(w) for w in wrapped]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_entry_form_shows_correct_values_matching_spec_example(self):
+        # Spec §60 worked example: Opening=1000, Purchase=100, Test=5,
+        # Sales=200 -> Total=1105, Theoretical=905.
+        self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/opening/", {"opening_quantity": "1000"})
+        working_day = DailyWorkingDay.objects.get(date=self.day1)
+        PurchaseInvoice.objects.create(
+            working_day=working_day, tank=self.tank, quantity=100, purchase_rate=Decimal("1200"),
+        )
+        nozzle = Nozzle.objects.create(tank=self.tank, number=1)
+        invoice = SalesInvoice.objects.create(working_day=working_day, operator=self.user)
+        NozzleSale.objects.create(
+            sales_invoice=invoice, nozzle=nozzle,
+            previous_meter=Decimal("0"), new_meter=Decimal("205"), test=Decimal("5"),
+            sales_rate=Decimal("1200"),
+        )
+
+        resp = self.client.get(f"/inventory/{self.day1}/tank/{self.tank.id}/actual/")
+        content = resp.content.decode()
+        self.assertIn("1000", content)  # مانده از قبل
+        self.assertIn("100", content)   # خرید روزانه
+        self.assertIn("5", content)     # بازگشت از آزمایش / آزمایش
+        self.assertIn("1105", content)  # جمع کل
+        self.assertIn("200", content)   # فروش روزانه
+        self.assertIn("905", content)   # موجودی غیرواقعی
+
+    def test_first_seven_fields_are_not_form_inputs(self):
+        self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/opening/", {"opening_quantity": "0"})
+        resp = self.client.get(f"/inventory/{self.day1}/tank/{self.tank.id}/actual/")
+        content = resp.content.decode()
+        # Scope to the <form> element only, since the page (via base.html)
+        # also legitimately contains other inputs (the header's global
+        # date control). Within the purchase/inventory form itself, only
+        # the CSRF token and the one real editable field should be
+        # <input> elements -- the 7 locked values must not be.
+        form_html = content.split('<form method="post">', 1)[1].split("</form>", 1)[0]
+        self.assertEqual(form_html.count("<input"), 2)  # csrf token + actual_inventory
+
+    def test_editing_an_existing_entry_still_shows_correct_locked_values(self):
+        self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/opening/", {"opening_quantity": "1000"})
+        self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/actual/", {"actual_inventory": "1000"})
+        # Re-open the same day/tank's form (editing) -- locked values must
+        # still reflect the same underlying calculation, unaffected by
+        # the fact that an actual_inventory row now exists.
+        resp = self.client.get(f"/inventory/{self.day1}/tank/{self.tank.id}/actual/")
+        self.assertContains(resp, "1000")

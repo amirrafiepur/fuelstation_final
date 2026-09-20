@@ -11,8 +11,37 @@
   </h2>
 
   <p style="font-size: 0.85rem; color: var(--color-ink-muted); margin-bottom: 1rem;">
-    مقدار اندازه‌گیری فیزیکی مخزن را وارد کنید. سایر مقادیر (موجودی نظری، کسری، اضافه) به‌صورت خودکار محاسبه می‌شوند.
+    مقادیر زیر به‌صورت خودکار محاسبه شده‌اند. فقط «موجودی واقعی» را وارد کنید.
   </p>
+
+  <div class="form-group">
+    <div class="form-label">مانده از قبل</div>
+    <div class="form-input form-input--locked numeric">{{ previous_balance }}</div>
+  </div>
+  <div class="form-group">
+    <div class="form-label">خرید روزانه</div>
+    <div class="form-input form-input--locked numeric">{{ daily_purchase }}</div>
+  </div>
+  <div class="form-group">
+    <div class="form-label">بازگشت از آزمایش</div>
+    <div class="form-input form-input--locked numeric">{{ test_return }}</div>
+  </div>
+  <div class="form-group">
+    <div class="form-label">جمع کل</div>
+    <div class="form-input form-input--locked numeric">{{ total_inventory }}</div>
+  </div>
+  <div class="form-group">
+    <div class="form-label">فروش روزانه</div>
+    <div class="form-input form-input--locked numeric">{{ daily_sales }}</div>
+  </div>
+  <div class="form-group">
+    <div class="form-label">موجودی غیرواقعی</div>
+    <div class="form-input form-input--locked numeric">{{ theoretical_inventory }}</div>
+  </div>
+  <div class="form-group">
+    <div class="form-label">آزمایش</div>
+    <div class="form-input form-input--locked numeric">{{ test_return }}</div>
+  </div>
 
   <form method="post">
     {% csrf_token %}

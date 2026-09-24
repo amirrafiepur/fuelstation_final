@@ -207,26 +207,57 @@ def nozzle_performance_monthly(nozzle: Nozzle, year: int, month: int):
 
 def petroleum_inventory_operations_ledger(tank: Tank, start_date, end_date):
     """
-    Petroleum Inventory & Operations Ledger (F6): per tank, one row per
-    working day from start_date through end_date, showing Daily Purchase,
-    Test Return, Daily Sales, Total Inventory, Theoretical Inventory,
-    Shortage, Overage, and the two daily-total columns:
+    "دفتر موجودی و عملیات": per tank, one row per working day from
+    start_date through end_date, split into two symmetric sides:
 
-        Daily Total 1 = Received/Purchased + Test + Overage
-        Daily Total 2 = Sales + Test Return + Shortage
-                        + End-of-period Actual Inventory
+    "رسیده" (received) -- per PurchaseInvoice for that day (0, 1, or many;
+    see apps/purchases/tests.py's multi-invoice-per-day coverage), plus
+    that day's aggregate Test/سرک/daily-total/cumulative-total, which are
+    day-level values shown once per day (attached to the first purchase
+    row; blank on any additional same-day purchase rows -- a standard
+    ledger convention for a day-level total next to line-item detail).
+    A day with zero purchases still gets exactly one "رسیده" row, so
+    every DailyWorkingDay in range has at least one row on this side,
+    matching "خارج شده" having exactly one row per day.
 
-    All values are pulled directly from the existing purchase/sales/
-    inventory source data and TankInventory-derived shortage/overage --
-    no second inventory calculation is performed here.
+        جمع روزانه‌ی رسیده = مقدار خرید (day total) + مجموع آزمایش + سرک
+        جمع کل رسیده (day N) = جمع کل رسیده (day N-1) + جمع روزانه‌ی رسیده (day N)
+
+    "خارج شده" (dispatched) -- exactly one row per day:
+
+        جمع روزانه‌ی خارج شده = جمع فروش مکانیکی + جمع آزمایش + کسری + موجودی واقعی
+        جمع کل خارج شده (day N) = جمع کل خارج شده (day N-1) + جمع روزانه‌ی خارج شده (day N)
+
+    سرک/کسری reuse inventory_services.compute_tank_inventory()'s existing
+    overage/shortage verbatim -- overage is سرک (0 when the day is a
+    shortage day instead), shortage is کسری (0 when the day is an
+    overage day instead); this is unchanged from before this rework, only
+    relabeled per the UI-level renames already established elsewhere in
+    this project (see apps/inventory's "موجودی غیرواقعی"/"سرک" renames).
+
+    Both cumulative totals follow the same carry-forward rule
+    independently: on the first day of the selected range, "previous
+    day" is treated as 0, so جمع کل == که روز's own جمع روزانه; every
+    day after that, جمع کل = روز قبل's جمع کل + امروز's جمع روزانه.
+    موجودی واقعی (an absolute tank balance, not a delta) is added into
+    جمع روزانه‌ی خارج شده every day by design, so جمع کل خارج شده does
+    NOT reconcile against جمع کل رسیده (a running sum of small daily
+    deltas) -- the two cumulative totals are independent running sums,
+    not two views of the same underlying quantity.
     """
     from apps.sales import services as sales_services
     from apps.purchases import services as purchase_services
 
     rows = []
+    cumulative_received = None
+    cumulative_dispatched = None
+
     for wd in DailyWorkingDay.objects.filter(
         date__gte=start_date, date__lte=end_date
     ).order_by("date"):
+        purchases = list(
+            PurchaseInvoice.objects.filter(tank=tank, working_day=wd).order_by("id")
+        )
         daily_purchase = purchase_services.get_daily_purchase_total(tank, wd)
         test_return = inventory_services.get_test_return(tank, wd)
         daily_sales = sales_services.get_daily_sales(tank, wd)
@@ -239,18 +270,41 @@ def petroleum_inventory_operations_ledger(tank: Tank, start_date, end_date):
             # TankInventory missing -- skip this day
             total_inventory = theoretical_inventory = shortage = overage = None
 
-        daily_total_1 = None
-        daily_total_2 = None
+        daily_received = None
+        daily_dispatched = None
+        actual_inventory = None
         if overage is not None:
             actual_inventory = TankInventory.objects.filter(
                 tank=tank, working_day=wd
             ).values_list("actual_inventory", flat=True).first()
-            daily_total_1 = daily_purchase + test_return + overage
-            daily_total_2 = daily_sales + test_return + shortage + actual_inventory
+            daily_received = daily_purchase + test_return + overage
+            daily_dispatched = daily_sales + test_return + shortage + actual_inventory
+            cumulative_received = (
+                daily_received if cumulative_received is None else cumulative_received + daily_received
+            )
+            cumulative_dispatched = (
+                daily_dispatched if cumulative_dispatched is None else cumulative_dispatched + daily_dispatched
+            )
+
+        # "رسیده": one row per purchase invoice that day (or a single
+        # placeholder row if there were none), day-level totals attached
+        # only to the first such row.
+        received_rows = []
+        for i, invoice in enumerate(purchases or [None]):
+            received_rows.append({
+                "program_number": invoice.program_number if invoice else None,
+                "tanker_number": invoice.tanker_number if invoice else None,
+                "quantity": invoice.quantity if invoice else None,
+                "test_return": test_return if i == 0 else None,
+                "overage": overage if i == 0 else None,
+                "daily_received": daily_received if i == 0 else None,
+                "cumulative_received": cumulative_received if i == 0 else None,
+            })
 
         rows.append({
             "date": wd.date,
             "tank": tank,
+            "received_rows": received_rows,
             "daily_purchase": daily_purchase,
             "test_return": test_return,
             "daily_sales": daily_sales,
@@ -258,8 +312,16 @@ def petroleum_inventory_operations_ledger(tank: Tank, start_date, end_date):
             "theoretical_inventory": theoretical_inventory,
             "shortage": shortage,
             "overage": overage,
-            "daily_total_1": daily_total_1,
-            "daily_total_2": daily_total_2,
+            "actual_inventory": actual_inventory,
+            "daily_received": daily_received,
+            "cumulative_received": cumulative_received,
+            "daily_dispatched": daily_dispatched,
+            "cumulative_dispatched": cumulative_dispatched,
+            # Kept for backward compatibility with anything still reading
+            # the pre-rework key names (daily_total_1/2 were exactly
+            # daily_received/daily_dispatched already).
+            "daily_total_1": daily_received,
+            "daily_total_2": daily_dispatched,
         })
     return rows
 

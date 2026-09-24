@@ -191,13 +191,21 @@ class PrintingHttpTests(TestCase):
         )
         row = service_rows[0]
 
-        self.assertIn(str(row["daily_purchase"]), text)
-        self.assertIn(str(row["test_return"]), text)
+        # "رسیده" side: per-invoice detail (program/tanker/quantity) plus
+        # the day-level values attached to the first (only) invoice row.
+        received = row["received_rows"][0]
+        self.assertIn(str(received["quantity"]), text)
+        self.assertIn(str(received["test_return"]), text)
+        self.assertIn(str(received["overage"]), text)
+        self.assertIn(str(received["daily_received"]), text)
+        self.assertIn(str(received["cumulative_received"]), text)
+        # "خارج شده" side: exactly one set of day-level values.
         self.assertIn(str(row["daily_sales"]), text)
+        self.assertIn(str(row["test_return"]), text)
         self.assertIn(str(row["shortage"]), text)
-        self.assertIn(str(row["overage"]), text)
-        self.assertIn(str(row["daily_total_1"]), text)
-        self.assertIn(str(row["daily_total_2"]), text)
+        self.assertIn(str(row["daily_dispatched"]), text)
+        self.assertIn(str(row["cumulative_dispatched"]), text)
+        self.assertIn(str(row["actual_inventory"]), text)
 
     def test_petroleum_monthly_pdf_matches_report_service_values(self):
         resp = self.client.get("/print/petroleum-monthly/?year=1405&month=5")

@@ -725,3 +725,290 @@ class AllNozzlesPerformanceTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.get("Content-Type"), "application/pdf")
         self.assertTrue(resp.content.startswith(b"%PDF"))
+
+
+class PetroleumLedgerReworkTests(TestCase):
+    """
+    Covers the دفتر موجودی و عملیات rework: two symmetric رسیده/خارج شده
+    sections, per-purchase-invoice detail on رسیده, the new cumulative
+    totals (جمع کل رسیده/خارج شده), and the §6 data-consistency identity
+    (جمع کل خارج شده + موجودی واقعی = جمع کل رسیده). The existing
+    Regular/Super tank-selector behavior is untouched -- these tests
+    exercise the service function per-tank exactly as before.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="op_pled", password="testpass123")
+        License.objects.create(start_date=datetime.date(2026, 7, 23), duration_days=365)
+        station = Station.objects.create(name="S_pled", province="P", city="C")
+        self.product = Product.objects.create(name="Regular")
+        self.tank = Tank.objects.create(station=station, product=self.product, capacity=50000)
+        self.nozzle = Nozzle.objects.create(tank=self.tank, number=1)
+        self.client.login(username="op_pled", password="testpass123")
+
+    def _sell(self, wd, previous_meter, new_meter, test=Decimal("0"), rate=Decimal("1200")):
+        invoice = SalesInvoice.objects.get_or_create(working_day=wd, defaults={"operator": self.user})[0]
+        return NozzleSale.objects.create(
+            sales_invoice=invoice, nozzle=self.nozzle,
+            previous_meter=previous_meter, new_meter=new_meter, test=test, sales_rate=rate,
+        )
+
+    def test_single_purchase_day_has_one_received_row(self):
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("1000"), effective_month=datetime.date(2026, 7, 23),
+        )
+        PurchaseInvoice.objects.create(
+            working_day=wd, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"),
+            program_number="BN-1", tanker_number="TN-1",
+        )
+        self._sell(wd, Decimal("0"), Decimal("205"), test=Decimal("5"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd, actual_inventory=Decimal("905"))
+
+        from apps.reports import services as report_services
+        rows = report_services.petroleum_inventory_operations_ledger(
+            self.tank, datetime.date(2026, 7, 23), datetime.date(2026, 7, 23)
+        )
+        self.assertEqual(len(rows[0]["received_rows"]), 1)
+        received = rows[0]["received_rows"][0]
+        self.assertEqual(received["program_number"], "BN-1")
+        self.assertEqual(received["tanker_number"], "TN-1")
+        self.assertEqual(received["quantity"], Decimal("100"))
+
+    def test_multiple_purchases_same_day_produce_one_received_row_each(self):
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("0"), effective_month=datetime.date(2026, 7, 23),
+        )
+        PurchaseInvoice.objects.create(
+            working_day=wd, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"),
+            program_number="BN-1", tanker_number="TN-1",
+        )
+        PurchaseInvoice.objects.create(
+            working_day=wd, tank=self.tank, quantity=Decimal("50"), purchase_rate=Decimal("1200"),
+            program_number="BN-2", tanker_number="TN-2",
+        )
+        TankInventory.objects.create(tank=self.tank, working_day=wd, actual_inventory=Decimal("150"))
+
+        from apps.reports import services as report_services
+        rows = report_services.petroleum_inventory_operations_ledger(
+            self.tank, datetime.date(2026, 7, 23), datetime.date(2026, 7, 23)
+        )
+        self.assertEqual(len(rows), 1)  # still one row per DAY
+        self.assertEqual(len(rows[0]["received_rows"]), 2)  # two invoice lines within it
+        self.assertEqual(rows[0]["received_rows"][0]["program_number"], "BN-1")
+        self.assertEqual(rows[0]["received_rows"][1]["program_number"], "BN-2")
+        # Day-level values attached only to the first invoice row.
+        self.assertIsNotNone(rows[0]["received_rows"][0]["daily_received"])
+        self.assertIsNone(rows[0]["received_rows"][1]["daily_received"])
+
+    def test_zero_purchase_day_still_produces_one_placeholder_received_row(self):
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("0"), effective_month=datetime.date(2026, 7, 23),
+        )
+        TankInventory.objects.create(tank=self.tank, working_day=wd, actual_inventory=Decimal("0"))
+
+        from apps.reports import services as report_services
+        rows = report_services.petroleum_inventory_operations_ledger(
+            self.tank, datetime.date(2026, 7, 23), datetime.date(2026, 7, 23)
+        )
+        self.assertEqual(len(rows[0]["received_rows"]), 1)
+        self.assertIsNone(rows[0]["received_rows"][0]["program_number"])
+        self.assertIsNone(rows[0]["received_rows"][0]["quantity"])
+
+    def test_daily_received_formula(self):
+        # مقدار خرید + مجموع آزمایش + سرک = جمع روزانه‌ی رسیده
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("1000"), effective_month=datetime.date(2026, 7, 23),
+        )
+        PurchaseInvoice.objects.create(
+            working_day=wd, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"),
+        )
+        self._sell(wd, Decimal("0"), Decimal("205"), test=Decimal("5"))
+        # Total=1105, Sales(mech)=200, Theoretical=905, Actual=910 -> overage(سرک)=5
+        TankInventory.objects.create(tank=self.tank, working_day=wd, actual_inventory=Decimal("910"))
+
+        from apps.reports import services as report_services
+        rows = report_services.petroleum_inventory_operations_ledger(
+            self.tank, datetime.date(2026, 7, 23), datetime.date(2026, 7, 23)
+        )
+        received = rows[0]["received_rows"][0]
+        self.assertEqual(received["overage"], Decimal("5"))
+        self.assertEqual(received["test_return"], Decimal("5"))
+        # 100 (purchase) + 5 (test) + 5 (سرک) = 110
+        self.assertEqual(received["daily_received"], Decimal("110"))
+
+    def test_daily_dispatched_formula(self):
+        # جمع فروش مکانیکی + جمع آزمایش + کسری + موجودی واقعی = جمع روزانه‌ی خارج شده
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("1000"), effective_month=datetime.date(2026, 7, 23),
+        )
+        PurchaseInvoice.objects.create(
+            working_day=wd, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"),
+        )
+        self._sell(wd, Decimal("0"), Decimal("205"), test=Decimal("5"))
+        # Total=1105, mech sales=200, Theoretical=905, Actual=900 -> shortage(کسری)=5
+        TankInventory.objects.create(tank=self.tank, working_day=wd, actual_inventory=Decimal("900"))
+
+        from apps.reports import services as report_services
+        rows = report_services.petroleum_inventory_operations_ledger(
+            self.tank, datetime.date(2026, 7, 23), datetime.date(2026, 7, 23)
+        )
+        row = rows[0]
+        self.assertEqual(row["shortage"], Decimal("5"))
+        # 200 (mech sales) + 5 (test) + 5 (کسری) + 900 (موجودی واقعی) = 1110
+        self.assertEqual(row["daily_dispatched"], Decimal("1110"))
+
+    def test_cumulative_received_accumulates_across_days(self):
+        wd1 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        wd2 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 24))
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("0"), effective_month=datetime.date(2026, 7, 23),
+        )
+        PurchaseInvoice.objects.create(working_day=wd1, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd1, actual_inventory=Decimal("100"))
+        PurchaseInvoice.objects.create(working_day=wd2, tank=self.tank, quantity=Decimal("50"), purchase_rate=Decimal("1200"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd2, actual_inventory=Decimal("150"))
+
+        from apps.reports import services as report_services
+        rows = report_services.petroleum_inventory_operations_ledger(
+            self.tank, datetime.date(2026, 7, 23), datetime.date(2026, 7, 24)
+        )
+        day1_cumulative = rows[0]["received_rows"][0]["cumulative_received"]
+        day2_cumulative = rows[1]["received_rows"][0]["cumulative_received"]
+        self.assertEqual(day1_cumulative, rows[0]["received_rows"][0]["daily_received"])
+        self.assertEqual(
+            day2_cumulative,
+            day1_cumulative + rows[1]["received_rows"][0]["daily_received"],
+        )
+
+    def test_cumulative_dispatched_accumulates_across_days(self):
+        wd1 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        wd2 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 24))
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("0"), effective_month=datetime.date(2026, 7, 23),
+        )
+        TankInventory.objects.create(tank=self.tank, working_day=wd1, actual_inventory=Decimal("0"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd2, actual_inventory=Decimal("0"))
+
+        from apps.reports import services as report_services
+        rows = report_services.petroleum_inventory_operations_ledger(
+            self.tank, datetime.date(2026, 7, 23), datetime.date(2026, 7, 24)
+        )
+        self.assertEqual(rows[0]["cumulative_dispatched"], rows[0]["daily_dispatched"])
+        self.assertEqual(
+            rows[1]["cumulative_dispatched"],
+            rows[0]["cumulative_dispatched"] + rows[1]["daily_dispatched"],
+        )
+
+    def test_cumulative_totals_follow_the_exact_carry_forward_rule(self):
+        """
+        جمع کل رسیده (روز N) = جمع کل رسیده (روز N-1) + جمع رسیده (روز N)
+        جمع کل خارج شده (روز N) = جمع کل خارج شده (روز N-1) + جمع خارج شده (روز N)
+        with day 1's "previous day" cumulative treated as 0, so day 1's
+        جمع کل == that day's own جمع روزانه exactly. This does NOT check
+        the two sides against each other -- that isn't part of the
+        design (see apps/reports/services.py's docstring on
+        petroleum_inventory_operations_ledger): موجودی واقعی is an
+        absolute balance, not a delta, so summing it daily into جمع
+        خارج شده intentionally does not reconcile against جمع رسیده's
+        running total of small daily deltas.
+        """
+        wd1 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        wd2 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 24))
+        wd3 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 25))
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("1000"), effective_month=datetime.date(2026, 7, 23),
+        )
+        PurchaseInvoice.objects.create(working_day=wd1, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"))
+        self._sell(wd1, Decimal("0"), Decimal("205"), test=Decimal("5"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd1, actual_inventory=Decimal("910"))  # overage 5
+
+        PurchaseInvoice.objects.create(working_day=wd2, tank=self.tank, quantity=Decimal("50"), purchase_rate=Decimal("1200"))
+        self._sell(wd2, Decimal("205"), Decimal("300"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd2, actual_inventory=Decimal("650"))
+
+        self._sell(wd3, Decimal("300"), Decimal("350"), test=Decimal("2"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd3, actual_inventory=Decimal("600"))
+
+        from apps.reports import services as report_services
+        rows = report_services.petroleum_inventory_operations_ledger(
+            self.tank, datetime.date(2026, 7, 23), datetime.date(2026, 7, 25)
+        )
+
+        day1, day2, day3 = rows
+        day1_received = day1["received_rows"][0]
+
+        # Day 1: جمع کل == جمع روزانه (previous day's cumulative treated as 0).
+        self.assertEqual(day1_received["cumulative_received"], day1_received["daily_received"])
+        self.assertEqual(day1["cumulative_dispatched"], day1["daily_dispatched"])
+
+        # Day 2: جمع کل (روز ۲) == جمع کل (روز ۱) + جمع روزانه (روز ۲).
+        day2_received = day2["received_rows"][0]
+        self.assertEqual(
+            day2_received["cumulative_received"],
+            day1_received["cumulative_received"] + day2_received["daily_received"],
+        )
+        self.assertEqual(
+            day2["cumulative_dispatched"],
+            day1["cumulative_dispatched"] + day2["daily_dispatched"],
+        )
+
+        # Day 3: same rule, chained one more day.
+        day3_received = day3["received_rows"][0]
+        self.assertEqual(
+            day3_received["cumulative_received"],
+            day2_received["cumulative_received"] + day3_received["daily_received"],
+        )
+        self.assertEqual(
+            day3["cumulative_dispatched"],
+            day2["cumulative_dispatched"] + day3["daily_dispatched"],
+        )
+
+    def test_page_shows_both_section_headers_and_all_fourteen_columns(self):
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("0"), effective_month=datetime.date(2026, 7, 23),
+        )
+        PurchaseInvoice.objects.create(working_day=wd, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd, actual_inventory=Decimal("100"))
+
+        resp = self.client.get(
+            f"/reports/petroleum-ledger/?tank_id={self.tank.id}&start_date=2026-07-23&end_date=2026-07-23"
+        )
+        content = resp.content.decode()
+        self.assertIn(">رسیده<", content)
+        self.assertIn(">خارج شده<", content)
+        columns = [
+            "تاریخ", "شماره ی بارنامه", "شماره ی نفتکش", "مقدار خرید",
+            "مجموع آزمایش", "سرک", "جمع روزانه‌ی رسیده", "جمع کل رسیده",
+            "جمع فروش مکانیکی", "جمع آزمایش", "کسری",
+            "جمع روزانه‌ی خارج شده", "جمع کل خارج شده", "موجودی واقعی",
+        ]
+        for col in columns:
+            self.assertIn(col, content)
+
+    def test_regular_super_tank_selector_still_works(self):
+        super_product = Product.objects.create(name="Super")
+        super_tank = Tank.objects.create(station=self.tank.station, product=super_product, capacity=30000)
+        resp = self.client.get("/reports/petroleum-ledger/")
+        self.assertContains(resp, "Regular")
+        self.assertContains(resp, "Super")
+
+    def test_print_pdf_generates_with_both_section_headers(self):
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("0"), effective_month=datetime.date(2026, 7, 23),
+        )
+        PurchaseInvoice.objects.create(working_day=wd, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd, actual_inventory=Decimal("100"))
+
+        resp = self.client.get(
+            f"/print/petroleum-ledger/{self.tank.id}/?start_date=2026-07-23&end_date=2026-07-23"
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get("Content-Type"), "application/pdf")
+        self.assertTrue(resp.content.startswith(b"%PDF"))

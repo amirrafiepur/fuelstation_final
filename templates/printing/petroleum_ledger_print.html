@@ -12,32 +12,50 @@
 <table class="print-table">
   <thead>
     <tr>
+      <th colspan="8" style="text-align:center;">رسیده</th>
+      <th colspan="6" style="text-align:center; border-right: 2px solid #000;">خارج شده</th>
+    </tr>
+    <tr>
       <th>تاریخ</th>
-      <th>خرید روز</th>
-      <th>بازگشت تست</th>
-      <th>فروش روز</th>
-      <th>موجودی کل</th>
-      <th>موجودی نظری</th>
+      <th>شماره ی بارنامه</th>
+      <th>شماره ی نفتکش</th>
+      <th>مقدار خرید</th>
+      <th>مجموع آزمایش</th>
+      <th>سرک</th>
+      <th>جمع روزانه‌ی رسیده</th>
+      <th>جمع کل رسیده</th>
+      <th style="border-right: 2px solid #000;">جمع فروش مکانیکی</th>
+      <th>جمع آزمایش</th>
       <th>کسری</th>
-      <th>اضافه</th>
-      <th>جمع کل ۱</th>
-      <th>جمع کل ۲</th>
+      <th>جمع روزانه‌ی خارج شده</th>
+      <th>جمع کل خارج شده</th>
+      <th>موجودی واقعی</th>
     </tr>
   </thead>
   <tbody>
     {% for row in rows %}
-    <tr>
-      <td class="numeric">{{ row.date|jalali }}</td>
-      <td class="numeric">{{ row.daily_purchase }}</td>
-      <td class="numeric">{{ row.test_return }}</td>
-      <td class="numeric">{{ row.daily_sales }}</td>
-      <td class="numeric">{{ row.total_inventory|default:"—" }}</td>
-      <td class="numeric">{{ row.theoretical_inventory|default:"—" }}</td>
-      <td class="numeric">{{ row.shortage|default:"—" }}</td>
-      <td class="numeric">{{ row.overage|default:"—" }}</td>
-      <td class="numeric">{{ row.daily_total_1|default:"—" }}</td>
-      <td class="numeric">{{ row.daily_total_2|default:"—" }}</td>
-    </tr>
+      {% for received in row.received_rows %}
+      <tr>
+        {% if forloop.first %}
+        <td class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.date|jalali }}</td>
+        {% endif %}
+        <td>{{ received.program_number|default:"—" }}</td>
+        <td>{{ received.tanker_number|default:"—" }}</td>
+        <td class="numeric">{{ received.quantity|default:"—" }}</td>
+        <td class="numeric">{{ received.test_return|default_if_none:"" }}</td>
+        <td class="numeric">{{ received.overage|default_if_none:"" }}</td>
+        <td class="numeric">{{ received.daily_received|default_if_none:"" }}</td>
+        <td class="numeric">{{ received.cumulative_received|default_if_none:"" }}</td>
+        {% if forloop.first %}
+        <td class="numeric" style="border-right: 2px solid #000;" rowspan="{{ row.received_rows|length }}">{{ row.daily_sales }}</td>
+        <td class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.test_return }}</td>
+        <td class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.shortage|default:"—" }}</td>
+        <td class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.daily_dispatched|default:"—" }}</td>
+        <td class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.cumulative_dispatched|default:"—" }}</td>
+        <td class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.actual_inventory|default:"—" }}</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
     {% endfor %}
   </tbody>
 </table>

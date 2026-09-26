@@ -35,12 +35,14 @@
       <tr style="border-bottom: 2px solid var(--color-border); text-align: right;">
         <th style="padding: 0.4rem;">محصول</th>
         <th style="padding: 0.4rem;">موجودی ابتدای دوره</th>
-        <th style="padding: 0.4rem;">کل خرید</th>
+        <th style="padding: 0.4rem;">مجموع سرک</th>
         <th style="padding: 0.4rem;">کل بازگشت تست</th>
+        <th style="padding: 0.4rem;">جمع کل رسیده</th>
         <th style="padding: 0.4rem;">کل فروش</th>
+        <th style="padding: 0.4rem;">کل بازگشت تست</th>
         <th style="padding: 0.4rem;">کل کسری</th>
-        <th style="padding: 0.4rem;">کل اضافه</th>
-        <th style="padding: 0.4rem;">موجودی انتهای دوره</th>
+        <th style="padding: 0.4rem;">جمع کل خارج شده</th>
+        <th style="padding: 0.4rem;">موجودی آخر دوره</th>
       </tr>
     </thead>
     <tbody>
@@ -48,11 +50,13 @@
       <tr style="border-bottom: 1px solid var(--color-border);">
         <td style="padding: 0.4rem;">{{ row.tank.product.name }}</td>
         <td style="padding: 0.4rem;" class="numeric">{{ row.beginning_inventory }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_purchase }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test_return }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_sales }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_shortage }}</td>
         <td style="padding: 0.4rem;" class="numeric">{{ row.total_overage }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test_return }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_received|default:"—" }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_sales }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test_return }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_shortage }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_dispatched|default:"—" }}</td>
         <td style="padding: 0.4rem;" class="numeric">{{ row.ending_inventory|default:"—" }}</td>
       </tr>
       {% endfor %}

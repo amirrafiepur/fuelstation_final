@@ -213,8 +213,16 @@ class PrintingHttpTests(TestCase):
 
         service_report = report_services.petroleum_inventory_monthly(self.tank, 1405, 5)
 
+        # "کل خرید" is no longer a displayed column on this report (per
+        # its rework), so total_purchase is deliberately not asserted
+        # here -- only the 10 columns actually shown.
         self.assertIn(str(service_report["beginning_inventory"]), text)
-        self.assertIn(str(service_report["total_purchase"]), text)
+        self.assertIn(str(service_report["total_overage"]), text)
+        self.assertIn(str(service_report["total_test_return"]), text)
+        self.assertIn(str(service_report["total_received"]), text)
+        self.assertIn(str(service_report["total_sales"]), text)
+        self.assertIn(str(service_report["total_shortage"]), text)
+        self.assertIn(str(service_report["total_dispatched"]), text)
         self.assertIn(str(service_report["ending_inventory"]), text)
 
     def test_nozzle_monthly_pdf_matches_report_service_values(self):

@@ -129,9 +129,16 @@ class ReportsHttpTests(TestCase):
             working_day=self.wd, tank=self.tank, quantity=Decimal("100"),
             purchase_rate=Decimal("1000"),
         )
-        # working_day date 2026-08-01 is Jalali 1405/05/10.
+        # working_day date 2026-08-01 is Jalali 1405/05/10. "کل خرید" is no
+        # longer a displayed column on this report (see the rework's own
+        # task doc), but the underlying purchase total must still be
+        # computed correctly by the service function underneath the page.
+        from apps.reports import services as report_services
+        report = report_services.petroleum_inventory_monthly(self.tank, 1405, 5)
+        self.assertEqual(report["total_purchase"], Decimal("100"))
+
         resp = self.client.get("/reports/petroleum-monthly/?year=1405&month=5")
-        self.assertContains(resp, "100")  # total purchase
+        self.assertEqual(resp.status_code, 200)
 
     def test_report_reflects_live_data_changes(self):
         """
@@ -1012,3 +1019,133 @@ class PetroleumLedgerReworkTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.get("Content-Type"), "application/pdf")
         self.assertTrue(resp.content.startswith(b"%PDF"))
+
+
+class MonthlyTankStatementReworkTests(TestCase):
+    """
+    Covers the گزارش ماهانه ی مخازن rework: 10-column reorder/rename,
+    removal of "کل خرید" from THIS report's display only (its underlying
+    logic/value is unaffected and still computed), and the two new
+    columns "جمع کل رسیده"/"جمع کل خارج شده" reusing the last available
+    cumulative totals from دفتر موجودی و عملیات verbatim.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="op_monthly", password="testpass123")
+        License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        station = Station.objects.create(name="S_monthly", province="P", city="C")
+        self.product = Product.objects.create(name="Regular")
+        self.tank = Tank.objects.create(station=station, product=self.product, capacity=50000)
+        self.nozzle = Nozzle.objects.create(tank=self.tank, number=1)
+        self.client.login(username="op_monthly", password="testpass123")
+        # 2026-07-23 is Jalali 1405/05/01 -- the accounting start for a
+        # license activated on 2026-08-01 (see get_accounting_start_date's
+        # Jalali-month-start rule).
+        self.day1 = datetime.date(2026, 7, 23)
+        self.day2 = datetime.date(2026, 7, 24)
+
+    def _sell(self, wd, previous_meter, new_meter, test=Decimal("0"), rate=Decimal("1200")):
+        invoice = SalesInvoice.objects.get_or_create(working_day=wd, defaults={"operator": self.user})[0]
+        return NozzleSale.objects.create(
+            sales_invoice=invoice, nozzle=self.nozzle,
+            previous_meter=previous_meter, new_meter=new_meter, test=test, sales_rate=rate,
+        )
+
+    def test_total_received_reuses_last_cumulative_from_petroleum_ledger(self):
+        wd1 = DailyWorkingDay.objects.create(date=self.day1)
+        wd2 = DailyWorkingDay.objects.create(date=self.day2)
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("0"), effective_month=self.day1,
+        )
+        PurchaseInvoice.objects.create(working_day=wd1, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd1, actual_inventory=Decimal("100"))
+        PurchaseInvoice.objects.create(working_day=wd2, tank=self.tank, quantity=Decimal("50"), purchase_rate=Decimal("1200"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd2, actual_inventory=Decimal("150"))
+
+        from apps.reports import services as report_services
+        ledger_rows = report_services.petroleum_inventory_operations_ledger(self.tank, self.day1, self.day2)
+        monthly = report_services.petroleum_inventory_monthly(self.tank, 1405, 5)
+
+        self.assertEqual(monthly["total_received"], ledger_rows[-1]["cumulative_received"])
+        self.assertEqual(monthly["total_dispatched"], ledger_rows[-1]["cumulative_dispatched"])
+
+    def test_total_purchase_still_computed_but_not_displayed(self):
+        wd1 = DailyWorkingDay.objects.create(date=self.day1)
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("0"), effective_month=self.day1,
+        )
+        PurchaseInvoice.objects.create(working_day=wd1, tank=self.tank, quantity=Decimal("777"), purchase_rate=Decimal("1200"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd1, actual_inventory=Decimal("777"))
+
+        from apps.reports import services as report_services
+        monthly = report_services.petroleum_inventory_monthly(self.tank, 1405, 5)
+        # Underlying value/logic untouched...
+        self.assertEqual(monthly["total_purchase"], Decimal("777"))
+
+        # ...but not shown as its own column on this report anymore.
+        resp = self.client.get("/reports/petroleum-monthly/?year=1405&month=5")
+        self.assertNotContains(resp, "کل خرید")
+
+    def test_page_shows_all_ten_columns_in_order_with_renamed_labels(self):
+        wd1 = DailyWorkingDay.objects.create(date=self.day1)
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("0"), effective_month=self.day1,
+        )
+        PurchaseInvoice.objects.create(working_day=wd1, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd1, actual_inventory=Decimal("100"))
+
+        resp = self.client.get("/reports/petroleum-monthly/?year=1405&month=5")
+        content = resp.content.decode()
+        columns = [
+            "محصول", "موجودی ابتدای دوره", "مجموع سرک", "کل بازگشت تست",
+            "جمع کل رسیده", "کل فروش", "کل کسری", "جمع کل خارج شده",
+            "موجودی آخر دوره",
+        ]
+        for col in columns:
+            self.assertIn(col, content)
+        positions = [content.index(c) for c in columns]
+        self.assertEqual(positions, sorted(positions))
+        # Old labels must be gone.
+        self.assertNotIn("کل اضافه", content)
+        self.assertNotIn("کل خرید", content)
+
+    def test_regular_super_separation_unchanged(self):
+        super_product = Product.objects.create(name="Super")
+        super_tank = Tank.objects.create(station=self.tank.station, product=super_product, capacity=30000)
+        wd1 = DailyWorkingDay.objects.create(date=self.day1)
+        for t in (self.tank, super_tank):
+            OpeningInventory.objects.create(tank=t, opening_quantity=Decimal("0"), effective_month=self.day1)
+            TankInventory.objects.create(tank=t, working_day=wd1, actual_inventory=Decimal("0"))
+
+        resp = self.client.get("/reports/petroleum-monthly/?year=1405&month=5")
+        self.assertContains(resp, "Regular")
+        self.assertContains(resp, "Super")
+
+    def test_print_pdf_generates_correctly(self):
+        wd1 = DailyWorkingDay.objects.create(date=self.day1)
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("0"), effective_month=self.day1,
+        )
+        PurchaseInvoice.objects.create(working_day=wd1, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd1, actual_inventory=Decimal("100"))
+
+        resp = self.client.get("/print/petroleum-monthly/?year=1405&month=5")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.get("Content-Type"), "application/pdf")
+        self.assertTrue(resp.content.startswith(b"%PDF"))
+
+    def test_petroleum_ledger_section_itself_is_unmodified(self):
+        """Confirms this rework did not touch دفتر موجودی و عملیات."""
+        wd1 = DailyWorkingDay.objects.create(date=self.day1)
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("0"), effective_month=self.day1,
+        )
+        PurchaseInvoice.objects.create(working_day=wd1, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd1, actual_inventory=Decimal("100"))
+
+        resp = self.client.get(
+            f"/reports/petroleum-ledger/?tank_id={self.tank.id}&start_date=2026-07-23&end_date=2026-07-23"
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "رسیده")
+        self.assertContains(resp, "خارج شده")

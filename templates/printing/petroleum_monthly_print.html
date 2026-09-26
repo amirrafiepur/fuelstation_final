@@ -10,12 +10,14 @@
     <tr>
       <th>محصول</th>
       <th>موجودی ابتدای دوره</th>
-      <th>کل خرید</th>
+      <th>مجموع سرک</th>
       <th>کل بازگشت تست</th>
+      <th>جمع کل رسیده</th>
       <th>کل فروش</th>
+      <th>کل بازگشت تست</th>
       <th>کل کسری</th>
-      <th>کل اضافه</th>
-      <th>موجودی انتهای دوره</th>
+      <th>جمع کل خارج شده</th>
+      <th>موجودی آخر دوره</th>
     </tr>
   </thead>
   <tbody>
@@ -23,11 +25,13 @@
     <tr>
       <td>{{ row.tank.product.name }}</td>
       <td class="numeric">{{ row.beginning_inventory }}</td>
-      <td class="numeric">{{ row.total_purchase }}</td>
-      <td class="numeric">{{ row.total_test_return }}</td>
-      <td class="numeric">{{ row.total_sales }}</td>
-      <td class="numeric">{{ row.total_shortage }}</td>
       <td class="numeric">{{ row.total_overage }}</td>
+      <td class="numeric">{{ row.total_test_return }}</td>
+      <td class="numeric">{{ row.total_received|default:"—" }}</td>
+      <td class="numeric">{{ row.total_sales }}</td>
+      <td class="numeric">{{ row.total_test_return }}</td>
+      <td class="numeric">{{ row.total_shortage }}</td>
+      <td class="numeric">{{ row.total_dispatched|default:"—" }}</td>
       <td class="numeric">{{ row.ending_inventory|default:"—" }}</td>
     </tr>
     {% endfor %}

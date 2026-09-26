@@ -343,6 +343,12 @@ def petroleum_inventory_monthly(tank: Tank, year: int, month: int):
     Ending Inventory = the Actual Inventory of the last registered
     TankInventory row within the selected period -- never manually
     entered or computed at the monthly level.
+
+    total_received/total_dispatched ("جمع کل رسیده"/"جمع کل خارج شده" in
+    the monthly report) reuse petroleum_inventory_operations_ledger()'s
+    own cumulative running totals verbatim -- the last day within this
+    month whose cumulative total was actually computed, not a fresh
+    monthly sum.
     """
     from apps.core.jalali import jalali_month_bounds
     from apps.sales import services as sales_services
@@ -407,6 +413,23 @@ def petroleum_inventory_monthly(tank: Tank, year: int, month: int):
     )
     ending_inventory = last_inventory_row.actual_inventory if last_inventory_row else None
 
+    # جمع کل رسیده / جمع کل خارج شده: reused verbatim from دفتر موجودی و
+    # عملیات's own cumulative running totals (see
+    # petroleum_inventory_operations_ledger() above) -- not recomputed
+    # here. "Last available value of the month" = the last day within
+    # this period whose cumulative total was actually computed (a day
+    # with no TankInventory row yet leaves it None there, exactly as in
+    # that function, so such trailing days are skipped rather than
+    # reported as 0).
+    ledger_rows = petroleum_inventory_operations_ledger(tank, first_day, last_day)
+    total_received = None
+    total_dispatched = None
+    for ledger_row in ledger_rows:
+        if ledger_row["cumulative_received"] is not None:
+            total_received = ledger_row["cumulative_received"]
+        if ledger_row["cumulative_dispatched"] is not None:
+            total_dispatched = ledger_row["cumulative_dispatched"]
+
     return {
         "tank": tank,
         "year": year,
@@ -418,4 +441,6 @@ def petroleum_inventory_monthly(tank: Tank, year: int, month: int):
         "total_sales": daily_sales_total,
         "total_shortage": shortage_total,
         "total_overage": overage_total,
+        "total_received": total_received,
+        "total_dispatched": total_dispatched,
     }

@@ -56,10 +56,11 @@ def deposit_list(request):
     month = int(request.GET.get("month", default_month))
 
     rows = deposit_services.decade_totals(year, month)
+    total = deposit_services.monthly_total(rows)
 
     return render(
         request, "deposits/deposit_list.html",
-        {"rows": rows, "year": year, "month": month},
+        {"rows": rows, "year": year, "month": month, "monthly_total": total},
     )
 
 

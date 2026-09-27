@@ -11,4 +11,5 @@ urlpatterns = [
     path("petroleum-ledger/<int:tank_id>/", views.petroleum_ledger_print, name="petroleum_ledger_print"),
     path("petroleum-monthly/", views.petroleum_monthly_print, name="petroleum_monthly_print"),
     path("purchases-ledger/", views.purchases_ledger_print, name="purchases_ledger_print"),
+    path("deposits-decade/", views.deposit_decade_print, name="deposit_decade_print"),
 ]

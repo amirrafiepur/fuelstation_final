@@ -295,3 +295,79 @@ class DepositDecadeReworkTests(TestCase):
         self.assertContains(resp1, "ثبت اطلاعات جدید")
         resp2 = self.client.get("/deposits/1405/6/first/")
         self.assertContains(resp2, "ثبت اطلاعات جدید")
+
+
+class DepositListAutoDisplayAndTotalsTests(TestCase):
+    """
+    Covers: (1) no separate نمایش/Submit button on the landing page --
+    year/month changes navigate automatically, like گزارش ماهانه مخازن;
+    (2) جمع مبلغ واریزی ماه = sum of the three decade totals; (3) a
+    print link per decade on both the landing page and the decade
+    detail page; (4) Persian decade labels in the registration form.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="op_dep2", password="testpass123")
+        License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        self.client.login(username="op_dep2", password="testpass123")
+
+    def test_no_submit_button_on_landing_page(self):
+        """The year/month selector itself must remain, but its own
+        نمایش/Submit button and wrapping <form> are gone -- selection now
+        navigates via onchange, exactly like گزارش ماهانه مخازن. (Other,
+        unrelated forms on the page -- the header's global-date picker and
+        logout button -- are untouched and expected.)"""
+        resp = self.client.get("/deposits/?year=1405&month=6")
+        content = resp.content.decode()
+        self.assertNotIn(">نمایش<", content)
+        self.assertIn("onchange=", content)
+
+    def test_monthly_total_equals_sum_of_decade_totals(self):
+        Deposit.objects.create(
+            date=datetime.date(2026, 8, 23), year=1405, month=6, decade=Deposit.FIRST_DECADE,
+            deposit_amount=Decimal("100000"),
+        )
+        Deposit.objects.create(
+            date=datetime.date(2026, 9, 2), year=1405, month=6, decade=Deposit.SECOND_DECADE,
+            deposit_amount=Decimal("50000"),
+        )
+        Deposit.objects.create(
+            date=datetime.date(2026, 9, 12), year=1405, month=6, decade=Deposit.THIRD_DECADE,
+            deposit_amount=Decimal("25000"),
+        )
+        resp = self.client.get("/deposits/?year=1405&month=6")
+        self.assertContains(resp, "جمع مبلغ واریزی ماه")
+        self.assertContains(resp, "175000")
+
+    def test_print_link_present_for_each_decade_on_landing_page(self):
+        resp = self.client.get("/deposits/?year=1405&month=6")
+        content = resp.content.decode()
+        for decade in (Deposit.FIRST_DECADE, Deposit.SECOND_DECADE, Deposit.THIRD_DECADE):
+            self.assertIn(f"decade={decade}", content)
+        self.assertIn("deposits-decade/", content)
+
+    def test_print_link_present_on_decade_detail_page(self):
+        resp = self.client.get("/deposits/1405/6/first/")
+        content = resp.content.decode()
+        self.assertIn("deposits-decade/", content)
+        self.assertIn("decade=first", content)
+
+    def test_decade_choices_use_persian_labels(self):
+        resp = self.client.get("/deposits/new/")
+        content = resp.content.decode()
+        self.assertIn(">دهه اول<", content)
+        self.assertIn(">دهه دوم<", content)
+        self.assertIn(">دهه سوم<", content)
+        self.assertNotIn("Days 1-10", content)
+
+    def test_decade_stored_values_unchanged(self):
+        """Only the displayed labels changed -- the stored/choice values
+        (\"first\"/\"second\"/\"third\") must still round-trip exactly as
+        before."""
+        resp = self.client.post("/deposits/new/", {
+            "date": "1405/06/05", "year": 1405, "month": 6, "decade": Deposit.FIRST_DECADE,
+            "deposit_amount": "1000", "difference_amount": "0", "document_number": "",
+        })
+        self.assertEqual(resp.status_code, 302)
+        deposit = Deposit.objects.get()
+        self.assertEqual(deposit.decade, "first")

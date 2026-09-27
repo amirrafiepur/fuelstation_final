@@ -102,6 +102,17 @@ def petroleum_monthly_print(request):
 
 
 @login_required
+def deposit_decade_print(request):
+    year = int(request.GET["year"])
+    month = int(request.GET["month"])
+    decade = request.GET["decade"]
+
+    context = printing_services.build_deposit_decade_context(year, month, decade)
+    filename = f"deposits-{decade}-{year}-{month:02d}.pdf"
+    return _render_pdf_response("printing/deposit_decade_print.html", context, filename)
+
+
+@login_required
 def purchases_ledger_print(request):
     start_date = datetime.date.fromisoformat(request.GET["start_date"])
     end_date = datetime.date.fromisoformat(request.GET["end_date"])

@@ -13,9 +13,9 @@ class Deposit(models.Model):
     SECOND_DECADE = "second"
     THIRD_DECADE = "third"
     DECADE_CHOICES = [
-        (FIRST_DECADE, "Days 1-10"),
-        (SECOND_DECADE, "Days 11-20"),
-        (THIRD_DECADE, "Day 21 to end of month"),
+        (FIRST_DECADE, "دهه اول"),
+        (SECOND_DECADE, "دهه دوم"),
+        (THIRD_DECADE, "دهه سوم"),
     ]
 
     date = models.DateField(

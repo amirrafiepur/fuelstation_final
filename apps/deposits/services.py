@@ -53,6 +53,16 @@ def decade_totals(year: int, month: int) -> list[dict]:
     return rows
 
 
+def monthly_total(rows: list[dict]) -> Decimal:
+    """
+    "جمع مبلغ واریزی ماه" -- the sum of the three decade totals already
+    computed by decade_totals(). Takes that function's own return value
+    rather than re-querying, so this is never a second source of truth
+    for the per-decade totals themselves.
+    """
+    return sum((row["total"] for row in rows), Decimal("0"))
+
+
 def deposits_in_decade(year: int, month: int, decade: str):
     """
     Every Deposit already assigned to this JALALI year/month/decade

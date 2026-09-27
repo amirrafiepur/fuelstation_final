@@ -133,6 +133,32 @@ def build_petroleum_monthly_context(year: int, month: int) -> dict:
     }
 
 
+def build_deposit_decade_context(year: int, month: int, decade: str) -> dict:
+    """
+    Reuses deposits.services.deposits_in_decade() verbatim -- the printed
+    table is exactly the deposits already shown on that decade's
+    on-screen detail page (چاپ from دهه اول prints only دهه اول, etc.),
+    no re-filtering here.
+    """
+    from apps.deposits import services as deposit_services
+    from apps.deposits.models import Deposit
+
+    decade_labels = {
+        Deposit.FIRST_DECADE: "دهه اول",
+        Deposit.SECOND_DECADE: "دهه دوم",
+        Deposit.THIRD_DECADE: "دهه سوم",
+    }
+
+    return {
+        "station": get_station_metadata(),
+        "year": year,
+        "month": month,
+        "decade": decade,
+        "decade_label": decade_labels[decade],
+        "deposits": deposit_services.deposits_in_decade(year, month, decade),
+    }
+
+
 def build_purchases_ledger_context(start_date, end_date) -> dict:
     """
     Reuses purchases.services.get_purchase_invoices_in_range() verbatim,

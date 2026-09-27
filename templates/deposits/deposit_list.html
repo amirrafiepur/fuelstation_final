@@ -10,14 +10,15 @@
     </a>
   </div>
 
-  <form method="get" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
     <div>
       <label class="form-label">سال</label>
-      <input type="number" name="year" class="form-input numeric" value="{{ year }}">
+      <input type="number" class="form-input numeric" value="{{ year }}"
+             onchange="window.location = '?year=' + this.value + '&month={{ month }}'">
     </div>
     <div>
       <label class="form-label">ماه</label>
-      <select name="month" class="form-input">
+      <select class="form-input" onchange="window.location = '?year={{ year }}&month=' + this.value">
         <option value="1" {% if month == 1 %}selected{% endif %}>۱</option>
         <option value="2" {% if month == 2 %}selected{% endif %}>۲</option>
         <option value="3" {% if month == 3 %}selected{% endif %}>۳</option>
@@ -32,16 +33,19 @@
         <option value="12" {% if month == 12 %}selected{% endif %}>۱۲</option>
       </select>
     </div>
-    <div style="grid-column: 1 / -1;">
-      <button type="submit" class="btn">نمایش</button>
-    </div>
-  </form>
+  </div>
+
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+    <span style="font-weight:600;">جمع مبلغ واریزی ماه</span>
+    <span class="numeric" style="font-weight:600;">{{ monthly_total }}</span>
+  </div>
 
   <table style="width:100%; border-collapse: collapse; font-size: 0.9rem;">
     <thead>
       <tr style="border-bottom: 2px solid var(--color-border); text-align: right;">
         <th style="padding: 0.4rem;">دهه</th>
         <th style="padding: 0.4rem;">جمع مبلغ واریزی</th>
+        <th style="padding: 0.4rem;"></th>
       </tr>
     </thead>
     <tbody>
@@ -50,6 +54,13 @@
           onclick="window.location='{% url 'deposits:deposit_decade_detail' year month row.decade %}'">
         <td style="padding: 0.6rem;">{{ row.label }}</td>
         <td style="padding: 0.6rem;" class="numeric">{{ row.total }}</td>
+        <td style="padding: 0.6rem;">
+          <a href="{% url 'printing:deposit_decade_print' %}?year={{ year }}&month={{ month }}&decade={{ row.decade }}"
+             target="_blank" onclick="event.stopPropagation()"
+             style="font-size:0.8rem;">
+            چاپ / PDF
+          </a>
+        </td>
       </tr>
       {% endfor %}
     </tbody>

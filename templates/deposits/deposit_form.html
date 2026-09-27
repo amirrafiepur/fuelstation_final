@@ -42,16 +42,6 @@
       {{ form.document_number }}
       {% for error in form.document_number.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
     </div>
-    <div class="form-group">
-      <label class="form-label" for="{{ form.bank.id_for_label }}">{{ form.bank.label }}</label>
-      {{ form.bank }}
-      {% for error in form.bank.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="{{ form.branch.id_for_label }}">{{ form.branch.label }}</label>
-      {{ form.branch }}
-      {% for error in form.branch.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
-    </div>
 
     <button type="submit" class="btn">{% if editing %}ذخیره تغییرات{% else %}ثبت واریز{% endif %}</button>
   </form>

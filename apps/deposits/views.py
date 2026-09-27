@@ -12,9 +12,10 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
-from apps.core.jalali import to_jalali
+from apps.core.jalali import current_jalali_year_month, to_jalali
 from apps.workday import services as workday_services
 
+from . import services as deposit_services
 from .forms import DepositForm
 from .models import Deposit
 
@@ -43,8 +44,49 @@ def _decade_for_date(date: datetime.date) -> str:
 
 @login_required
 def deposit_list(request):
-    deposits = Deposit.objects.order_by("-date")
-    return render(request, "deposits/deposit_list.html", {"deposits": deposits})
+    """
+    واریزی‌ها landing page: a year/month selector (same JALALI
+    year/month pattern as reports:petroleum_monthly) plus a 3-row
+    دهه‌ اول/دوم/سوم summary table, each row's total reusing
+    deposit_services.decade_totals() -- no per-decade sum computed here.
+    """
+    today = workday_services.get_today()
+    default_year, default_month = current_jalali_year_month(today)
+    year = int(request.GET.get("year", default_year))
+    month = int(request.GET.get("month", default_month))
+
+    rows = deposit_services.decade_totals(year, month)
+
+    return render(
+        request, "deposits/deposit_list.html",
+        {"rows": rows, "year": year, "month": month},
+    )
+
+
+@login_required
+def deposit_decade_detail(request, year, month, decade):
+    """
+    One decade's deposits, chronological, for the given JALALI
+    year/month -- reuses deposit_services.deposits_in_decade() verbatim;
+    no re-filtering or re-sorting logic here.
+    """
+    year = int(year)
+    month = int(month)
+    deposits = deposit_services.deposits_in_decade(year, month, decade)
+    decade_labels = {
+        Deposit.FIRST_DECADE: "دهه اول",
+        Deposit.SECOND_DECADE: "دهه دوم",
+        Deposit.THIRD_DECADE: "دهه سوم",
+    }
+    decade_label = decade_labels[decade]
+
+    return render(
+        request, "deposits/deposit_decade_detail.html",
+        {
+            "deposits": deposits, "year": year, "month": month,
+            "decade": decade, "decade_label": decade_label,
+        },
+    )
 
 
 @login_required

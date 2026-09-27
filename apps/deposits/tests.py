@@ -56,11 +56,13 @@ class DepositHttpTests(TestCase):
         self.client.login(username="op1", password="testpass123")
 
     def test_deposit_list_renders_empty(self):
-        """Deposits are fully optional -- an empty list is a valid state,
-        not an error or a blocking condition."""
+        """Deposits are fully optional -- the 3-decade summary always
+        renders (with 0 totals), not an error or a blocking condition."""
         resp = self.client.get("/deposits/")
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "واریزی ثبت نشده است")
+        self.assertContains(resp, "دهه اول")
+        self.assertContains(resp, "دهه دوم")
+        self.assertContains(resp, "دهه سوم")
 
     def test_create_deposit_form_defaults_decade_from_date(self):
         resp = self.client.get("/deposits/new/")
@@ -127,16 +129,169 @@ class DepositHttpTests(TestCase):
             date=datetime.date(2026, 8, 5), year=2026, month=8, decade=Deposit.FIRST_DECADE,
             deposit_amount=Decimal("1234567"), document_number="DOC-999",
         )
-        resp = self.client.get("/deposits/")
+        # Document numbers only appear on the decade detail page now --
+        # the landing page shows the 3-decade summary table.
+        resp = self.client.get("/deposits/2026/8/first/")
         self.assertContains(resp, "DOC-999")
 
-    def test_bank_and_branch_are_optional(self):
+    def test_bank_and_branch_fields_removed_from_form(self):
+        """"بانک"/"شعبه" were removed from the deposit form entirely --
+        posting them must not error (they're simply ignored, same as any
+        other unknown POST key), and nothing is saved under those names
+        since the model itself keeps the columns unused going forward."""
         resp = self.client.post("/deposits/new/", {
             "date": "1405/05/14", "year": 2026, "month": 8, "decade": Deposit.FIRST_DECADE,
             "deposit_amount": "1000000", "difference_amount": "0",
-            "document_number": "", "bank": "", "branch": "",
+            "document_number": "", "bank": "some bank", "branch": "some branch",
         })
         self.assertEqual(resp.status_code, 302)
         deposit = Deposit.objects.get()
         self.assertEqual(deposit.bank, "")
         self.assertEqual(deposit.branch, "")
+
+
+class DepositDecadeReworkTests(TestCase):
+    """
+    Covers the واریزی‌ها rework: year/month selector + 3-row دهه
+    summary landing page, decade-detail pages with the exact 4-column
+    chronological table, and dynamic third-decade length (9/10/11 days
+    depending on the selected Jalali month).
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="op_dep", password="testpass123")
+        License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        self.client.login(username="op_dep", password="testpass123")
+
+    def test_landing_page_shows_three_decade_rows(self):
+        resp = self.client.get("/deposits/?year=1405&month=6")
+        self.assertContains(resp, "دهه اول")
+        self.assertContains(resp, "دهه دوم")
+        self.assertContains(resp, "دهه سوم")
+        self.assertContains(resp, "جمع مبلغ واریزی")
+
+    def test_deposits_on_boundary_days_land_in_correct_decade(self):
+        """Basic check #1: register deposits on the 1st, 10th, 11th,
+        20th, and 31st of a 31-day Jalali month (1405/06) and verify
+        each lands in the correct decade."""
+        # 1405/06/01, /10, /11, /20, /31 in Gregorian (see verified
+        # conversions: day 1 -> 2026-08-23, day 10 -> 2026-09-01,
+        # day 11 -> 2026-09-02, day 20 -> 2026-09-11, day 31 -> 2026-09-22).
+        cases = [
+            (datetime.date(2026, 8, 23), Deposit.FIRST_DECADE),
+            (datetime.date(2026, 9, 1), Deposit.FIRST_DECADE),
+            (datetime.date(2026, 9, 2), Deposit.SECOND_DECADE),
+            (datetime.date(2026, 9, 11), Deposit.SECOND_DECADE),
+            (datetime.date(2026, 9, 22), Deposit.THIRD_DECADE),
+        ]
+        for i, (greg_date, expected_decade) in enumerate(cases):
+            Deposit.objects.create(
+                date=greg_date, year=1405, month=6, decade=expected_decade,
+                deposit_amount=Decimal("1000"), document_number=f"DOC-{i}",
+            )
+
+        for i, (greg_date, expected_decade) in enumerate(cases):
+            resp = self.client.get(f"/deposits/1405/6/{expected_decade}/")
+            self.assertEqual(resp.status_code, 200)
+            self.assertContains(resp, f"DOC-{i}")
+
+        self.assertEqual(
+            Deposit.objects.filter(year=1405, month=6, decade=Deposit.FIRST_DECADE).count(), 2
+        )
+        self.assertEqual(
+            Deposit.objects.filter(year=1405, month=6, decade=Deposit.SECOND_DECADE).count(), 2
+        )
+        self.assertEqual(
+            Deposit.objects.filter(year=1405, month=6, decade=Deposit.THIRD_DECADE).count(), 1
+        )
+
+    def test_decade_detail_shows_records_in_chronological_order(self):
+        Deposit.objects.create(
+            date=datetime.date(2026, 9, 2), year=1405, month=6, decade=Deposit.SECOND_DECADE,
+            deposit_amount=Decimal("500"), document_number="LATER",
+        )
+        Deposit.objects.create(
+            date=datetime.date(2026, 8, 25), year=1405, month=6, decade=Deposit.FIRST_DECADE,
+            deposit_amount=Decimal("300"), document_number="EARLIER",
+        )
+        # Same decade, need two same-decade records to test ordering meaningfully.
+        Deposit.objects.create(
+            date=datetime.date(2026, 8, 23), year=1405, month=6, decade=Deposit.FIRST_DECADE,
+            deposit_amount=Decimal("100"), document_number="EARLIEST",
+        )
+        resp = self.client.get("/deposits/1405/6/first/")
+        content = resp.content.decode()
+        pos_earliest = content.index("EARLIEST")
+        pos_earlier = content.index("EARLIER")
+        self.assertLess(pos_earliest, pos_earlier)
+
+    def test_decade_detail_shows_all_four_required_columns(self):
+        Deposit.objects.create(
+            date=datetime.date(2026, 8, 23), year=1405, month=6, decade=Deposit.FIRST_DECADE,
+            deposit_amount=Decimal("500000"), difference_amount=Decimal("1000"),
+            document_number="DOC-77",
+        )
+        resp = self.client.get("/deposits/1405/6/first/")
+        content = resp.content.decode()
+        for label in ["تاریخ سند", "شماره ی سند", "مبلغ واریزی", "مبلغ مابه التفاوت"]:
+            self.assertIn(label, content)
+        self.assertIn("DOC-77", content)
+        self.assertIn("500000", content)
+        self.assertIn("1000", content)
+
+    def test_decade_total_equals_sum_of_its_deposits(self):
+        """Basic check #2: جمع مبلغ واریزی equals the sum of all
+        مبلغ واریزی records within that decade."""
+        for amount in ("100000", "200000", "50000"):
+            Deposit.objects.create(
+                date=datetime.date(2026, 8, 23), year=1405, month=6, decade=Deposit.FIRST_DECADE,
+                deposit_amount=Decimal(amount),
+            )
+        from apps.deposits import services
+        rows = services.decade_totals(1405, 6)
+        first_row = next(r for r in rows if r["decade"] == Deposit.FIRST_DECADE)
+        self.assertEqual(first_row["total"], Decimal("350000"))
+
+    def test_decade_totals_are_independent_per_decade(self):
+        Deposit.objects.create(
+            date=datetime.date(2026, 8, 23), year=1405, month=6, decade=Deposit.FIRST_DECADE,
+            deposit_amount=Decimal("100"),
+        )
+        Deposit.objects.create(
+            date=datetime.date(2026, 9, 2), year=1405, month=6, decade=Deposit.SECOND_DECADE,
+            deposit_amount=Decimal("200"),
+        )
+        from apps.deposits import services
+        rows = services.decade_totals(1405, 6)
+        totals = {r["decade"]: r["total"] for r in rows}
+        self.assertEqual(totals[Deposit.FIRST_DECADE], Decimal("100"))
+        self.assertEqual(totals[Deposit.SECOND_DECADE], Decimal("200"))
+        self.assertEqual(totals[Deposit.THIRD_DECADE], Decimal("0"))
+
+    def test_third_decade_has_eleven_days_in_a_31_day_month(self):
+        """Basic check #2 (continued): a 31-day month's دهه سوم must
+        contain 11 days (21-31), not a hardcoded 10."""
+        from apps.deposits import services
+        self.assertEqual(services.third_decade_length(1405, 6), 11)
+
+    def test_third_decade_has_ten_days_in_a_30_day_month(self):
+        from apps.deposits import services
+        self.assertEqual(services.third_decade_length(1405, 7), 10)
+
+    def test_decade_with_no_deposits_shows_zero_total(self):
+        from apps.deposits import services
+        rows = services.decade_totals(1405, 6)
+        for row in rows:
+            self.assertEqual(row["total"], Decimal("0"))
+
+    def test_deposit_form_no_longer_has_bank_or_branch_fields(self):
+        resp = self.client.get("/deposits/new/")
+        content = resp.content.decode()
+        self.assertNotIn(">بانک<", content)
+        self.assertNotIn(">شعبه<", content)
+
+    def test_create_deposit_button_present_on_landing_and_detail_pages(self):
+        resp1 = self.client.get("/deposits/")
+        self.assertContains(resp1, "ثبت اطلاعات جدید")
+        resp2 = self.client.get("/deposits/1405/6/first/")
+        self.assertContains(resp2, "ثبت اطلاعات جدید")

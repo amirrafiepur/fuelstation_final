@@ -23,7 +23,7 @@ class DepositForm(forms.ModelForm):
         model = Deposit
         fields = [
             "date", "year", "month", "decade",
-            "difference_amount", "deposit_amount", "document_number", "bank", "branch",
+            "difference_amount", "deposit_amount", "document_number",
         ]
         widgets = {
             "year": forms.NumberInput(attrs={"class": "form-input numeric"}),
@@ -32,8 +32,6 @@ class DepositForm(forms.ModelForm):
             "difference_amount": forms.NumberInput(attrs={"class": "form-input numeric", "step": "0.01"}),
             "deposit_amount": forms.NumberInput(attrs={"class": "form-input numeric", "step": "0.01"}),
             "document_number": forms.TextInput(attrs={"class": "form-input"}),
-            "bank": forms.TextInput(attrs={"class": "form-input"}),
-            "branch": forms.TextInput(attrs={"class": "form-input"}),
         }
         labels = {
             "year": "سال",
@@ -42,6 +40,4 @@ class DepositForm(forms.ModelForm):
             "difference_amount": "مبلغ تفاوت",
             "deposit_amount": "مبلغ واریزی",
             "document_number": "شماره سند",
-            "bank": "بانک",
-            "branch": "شعبه",
         }

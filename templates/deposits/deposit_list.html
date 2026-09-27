@@ -1,45 +1,58 @@
 {% extends "base.html" %}
-{% load jalali_tags %}
-{% block title %}واریزها{% endblock %}
+{% block title %}واریزی‌ها{% endblock %}
 {% block content %}
+
 <div class="panel">
-  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
-    <h2 class="panel__title" style="margin:0; border:none; padding:0;">واریزها</h2>
-    <a href="{% url 'deposits:deposit_create' %}" class="btn" style="display:inline-block; width:auto; padding:0.5rem 1rem;">+ ثبت واریز جدید</a>
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
+    <h2 class="panel__title" style="margin:0;">واریزی‌ها</h2>
+    <a href="{% url 'deposits:deposit_create' %}" class="btn" style="display:inline-block; width:auto; padding:0.4rem 0.9rem; font-size:0.85rem;">
+      ثبت اطلاعات جدید
+    </a>
   </div>
 
-  {% if deposits %}
-  <table style="width:100%; border-collapse: collapse; font-size: 0.85rem;">
+  <form method="get" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+      <label class="form-label">سال</label>
+      <input type="number" name="year" class="form-input numeric" value="{{ year }}">
+    </div>
+    <div>
+      <label class="form-label">ماه</label>
+      <select name="month" class="form-input">
+        <option value="1" {% if month == 1 %}selected{% endif %}>۱</option>
+        <option value="2" {% if month == 2 %}selected{% endif %}>۲</option>
+        <option value="3" {% if month == 3 %}selected{% endif %}>۳</option>
+        <option value="4" {% if month == 4 %}selected{% endif %}>۴</option>
+        <option value="5" {% if month == 5 %}selected{% endif %}>۵</option>
+        <option value="6" {% if month == 6 %}selected{% endif %}>۶</option>
+        <option value="7" {% if month == 7 %}selected{% endif %}>۷</option>
+        <option value="8" {% if month == 8 %}selected{% endif %}>۸</option>
+        <option value="9" {% if month == 9 %}selected{% endif %}>۹</option>
+        <option value="10" {% if month == 10 %}selected{% endif %}>۱۰</option>
+        <option value="11" {% if month == 11 %}selected{% endif %}>۱۱</option>
+        <option value="12" {% if month == 12 %}selected{% endif %}>۱۲</option>
+      </select>
+    </div>
+    <div style="grid-column: 1 / -1;">
+      <button type="submit" class="btn">نمایش</button>
+    </div>
+  </form>
+
+  <table style="width:100%; border-collapse: collapse; font-size: 0.9rem;">
     <thead>
       <tr style="border-bottom: 2px solid var(--color-border); text-align: right;">
-        <th style="padding: 0.4rem;">تاریخ</th>
         <th style="padding: 0.4rem;">دهه</th>
-        <th style="padding: 0.4rem;">مبلغ واریزی</th>
-        <th style="padding: 0.4rem;">مبلغ تفاوت</th>
-        <th style="padding: 0.4rem;">شماره سند</th>
-        <th style="padding: 0.4rem;">بانک</th>
-        <th style="padding: 0.4rem;"></th>
+        <th style="padding: 0.4rem;">جمع مبلغ واریزی</th>
       </tr>
     </thead>
     <tbody>
-      {% for deposit in deposits %}
-      <tr style="border-bottom: 1px solid var(--color-border);">
-        <td style="padding: 0.4rem;" class="numeric">{{ deposit.date|jalali }}</td>
-        <td style="padding: 0.4rem;">{{ deposit.get_decade_display }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ deposit.deposit_amount }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ deposit.difference_amount }}</td>
-        <td style="padding: 0.4rem;">{{ deposit.document_number|default:"—" }}</td>
-        <td style="padding: 0.4rem;">{{ deposit.bank|default:"—" }}</td>
-        <td style="padding: 0.4rem; display:flex; gap:0.75rem;">
-          <a href="{% url 'deposits:deposit_edit' deposit.pk %}">ویرایش</a>
-          <a href="{% url 'deposits:deposit_delete' deposit.pk %}" style="color: var(--color-danger);">حذف</a>
-        </td>
+      {% for row in rows %}
+      <tr style="border-bottom: 1px solid var(--color-border); cursor: pointer;"
+          onclick="window.location='{% url 'deposits:deposit_decade_detail' year month row.decade %}'">
+        <td style="padding: 0.6rem;">{{ row.label }}</td>
+        <td style="padding: 0.6rem;" class="numeric">{{ row.total }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  {% else %}
-    <p style="color: var(--color-ink-muted);">واریزی ثبت نشده است.</p>
-  {% endif %}
 </div>
 {% endblock %}

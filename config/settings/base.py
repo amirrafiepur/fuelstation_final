@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'apps.inventory',
     'apps.seals',
     'apps.deposits',
+    'apps.statement',
     'apps.reports',
     'apps.printing',
 ]

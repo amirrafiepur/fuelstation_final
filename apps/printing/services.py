@@ -159,6 +159,22 @@ def build_deposit_decade_context(year: int, month: int, decade: str) -> dict:
     }
 
 
+def build_statement_context(year: int, month: int) -> dict:
+    """
+    "صورت وضعیت ماهانه": reuses apps.statement.services.build_statement_rows()
+    verbatim, so the printed page shows exactly the same rows/values as
+    the on-screen page for that year/month -- no recomputation here.
+    """
+    from apps.statement import services as statement_services
+
+    return {
+        "station": get_station_metadata(),
+        "year": year,
+        "month": month,
+        "rows": statement_services.build_statement_rows(year, month),
+    }
+
+
 def build_purchases_ledger_context(start_date, end_date) -> dict:
     """
     Reuses purchases.services.get_purchase_invoices_in_range() verbatim,

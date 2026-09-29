@@ -17,5 +17,6 @@ urlpatterns = [
     path('reports/', include('apps.reports.urls')),
     path('seals/', include('apps.seals.urls')),
     path('deposits/', include('apps.deposits.urls')),
+    path('statement/', include('apps.statement.urls')),
     path('print/', include('apps.printing.urls')),
 ]

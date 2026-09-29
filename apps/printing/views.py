@@ -102,6 +102,16 @@ def petroleum_monthly_print(request):
 
 
 @login_required
+def statement_print(request):
+    year = int(request.GET["year"])
+    month = int(request.GET["month"])
+
+    context = printing_services.build_statement_context(year, month)
+    filename = f"statement-{year}-{month:02d}.pdf"
+    return _render_pdf_response("printing/statement_print.html", context, filename)
+
+
+@login_required
 def deposit_decade_print(request):
     year = int(request.GET["year"])
     month = int(request.GET["month"])

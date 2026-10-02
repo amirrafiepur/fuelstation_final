@@ -112,6 +112,16 @@ def statement_print(request):
 
 
 @login_required
+def comparison_print(request):
+    year = int(request.GET["year"])
+    month = int(request.GET["month"])
+
+    context = printing_services.build_comparison_context(year, month)
+    filename = f"comparison-{year}-{month:02d}.pdf"
+    return _render_pdf_response("printing/comparison_print.html", context, filename)
+
+
+@login_required
 def deposit_decade_print(request):
     year = int(request.GET["year"])
     month = int(request.GET["month"])

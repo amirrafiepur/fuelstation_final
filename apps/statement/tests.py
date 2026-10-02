@@ -178,6 +178,32 @@ class StatementServiceTests(TestCase):
         self.assertEqual(row["entry"].id, entry.id)
 
 
+class StatementPrintContextTests(TestCase):
+    """
+    Renders the actual printing/statement_print.html template (the exact
+    HTML source WeasyPrint converts to PDF) through
+    build_statement_context(), so this verifies the PDF content itself
+    without needing weasyprint installed.
+    """
+
+    def setUp(self):
+        station = Station.objects.create(name="S_stmt_print", province="P", city="C")
+        self.product = Product.objects.create(name="بنزین معمولی")
+        Tank.objects.create(station=station, product=self.product, capacity=50000)
+
+    def test_pdf_source_html_no_longer_has_total_received_column(self):
+        from django.template.loader import render_to_string
+
+        from apps.printing.services import build_statement_context
+
+        context = build_statement_context(1405, 5)
+        html = render_to_string("printing/statement_print.html", context)
+
+        self.assertNotIn("جمع کل رسیده ها", html)
+        self.assertIn('colspan="6"', html)
+        self.assertIn("جمع کل خارج شده", html)
+
+
 class StatementViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="op_stmt_view", password="testpass123")
@@ -197,11 +223,20 @@ class StatementViewTests(TestCase):
         content = resp.content.decode()
         for label in [
             "رسیده", "خارج شده", "موجودی اول ماه", "مقدار رسیده", "سرک", "جمع کل",
-            "جمع کل رسیده ها", "مقدار فروش", "کسری", "موجودی آخر ماه", "جمع کل خارج شده",
+            "مقدار فروش", "کسری", "موجودی آخر ماه", "جمع کل خارج شده",
             "اختلاف فروش دیجیتال و مکانیکی", "پورسانت", "مقدار لیتراژ کسری غیرمجازه",
             "تعداد نفتکش", "ظرفیت نفتکش", "ورود فروش دیجیتال",
         ]:
             self.assertIn(label, content)
+
+    def test_upper_table_no_longer_has_total_received_column(self):
+        """Task 1: "جمع کل رسیده ها" must be gone from the upper table.
+        The secondary table's unrelated "جمع کل رسیده" column (no "ها")
+        is untouched and must still be present."""
+        resp = self.client.get("/statement/?year=1405&month=5")
+        content = resp.content.decode()
+        self.assertNotIn("جمع کل رسیده ها", content)
+        self.assertIn("جمع کل رسیده", content)
 
     def test_print_button_present(self):
         resp = self.client.get("/statement/?year=1405&month=5")

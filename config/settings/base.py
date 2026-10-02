@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'apps.seals',
     'apps.deposits',
     'apps.statement',
+    'apps.comparison',
     'apps.reports',
     'apps.printing',
 ]

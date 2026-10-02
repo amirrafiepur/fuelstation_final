@@ -175,6 +175,24 @@ def build_statement_context(year: int, month: int) -> dict:
     }
 
 
+def build_comparison_context(year: int, month: int) -> dict:
+    """
+    "مقایسه سیستم مکانیکی و دیجیتال": reuses
+    apps.comparison.services.build_mechanical_rows()/build_digital_rows()
+    verbatim, so the printed page shows exactly the same two tables as
+    the on-screen page for that year/month -- no recomputation here.
+    """
+    from apps.comparison import services as comparison_services
+
+    return {
+        "station": get_station_metadata(),
+        "year": year,
+        "month": month,
+        "mechanical_rows": comparison_services.build_mechanical_rows(year, month),
+        "digital_rows": comparison_services.build_digital_rows(year, month),
+    }
+
+
 def build_purchases_ledger_context(start_date, end_date) -> dict:
     """
     Reuses purchases.services.get_purchase_invoices_in_range() verbatim,

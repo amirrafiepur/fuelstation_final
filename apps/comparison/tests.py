@@ -141,6 +141,14 @@ class ComparisonViewTests(TestCase):
         resp = self.client.get("/comparison/?year=1405&month=5")
         self.assertNotIn("جمع کل رسیده ها", resp.content.decode())
 
+    def test_digital_entry_form_is_centered(self):
+        """UI fix: the form panel must be centered (margin: 0 auto), like
+        the existing فاکتورهای فروش / واریزی‌ها forms, not stuck to the
+        right edge."""
+        entry = DigitalEntry.objects.create(tank=self.tank, year=1405, month=5)
+        resp = self.client.get(f"/comparison/entry/{entry.id}/edit/")
+        self.assertIn("margin: 0 auto", resp.content.decode())
+
     def test_digital_entry_edit_saves_and_redirects(self):
         entry = DigitalEntry.objects.create(tank=self.tank, year=1405, month=5)
         resp = self.client.post(

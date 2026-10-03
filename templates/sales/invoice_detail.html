@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load jalali_tags %}
+{% load display_tags %}
 {% block title %}فاکتور فروش روزانه — {{ working_day.date|jalali }}{% endblock %}
 {% block content %}
 
@@ -47,7 +48,7 @@
       {% for sale in nozzle_sales %}
       <tr style="border-bottom: 1px solid var(--color-border);">
         <td style="padding: 0.5rem;" class="numeric">{{ sale.nozzle.number }}</td>
-        <td style="padding: 0.5rem;">{{ sale.nozzle.tank.product.name }}</td>
+        <td style="padding: 0.5rem;">{{ sale.nozzle.tank.product.name|persian_product }}</td>
         <td style="padding: 0.5rem;" class="numeric">{{ sale.previous_meter }}</td>
         <td style="padding: 0.5rem;" class="numeric">{{ sale.new_meter }}</td>
         <td style="padding: 0.5rem;" class="numeric">{{ sale.operation }}</td>

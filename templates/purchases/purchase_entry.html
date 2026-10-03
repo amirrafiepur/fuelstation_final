@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 {% load jalali_tags %}
-{% block title %}{% if editing %}ویرایش خرید{% else %}ثبت خرید جدید{% endif %} — {{ tank.product.name }}{% endblock %}
+{% load display_tags %}
+{% block title %}{% if editing %}ویرایش خرید{% else %}ثبت خرید جدید{% endif %} — {{ tank.product.name|persian_product }}{% endblock %}
 {% block content %}
 <div class="panel" style="max-width: 480px; margin: 0 auto;">
   <h2 class="panel__title">
-    {% if editing %}ویرایش فاکتور خرید{% else %}فاکتور خرید جدید{% endif %} — {{ tank.product.name }}
+    {% if editing %}ویرایش فاکتور خرید{% else %}فاکتور خرید جدید{% endif %} — {{ tank.product.name|persian_product }}
     <span style="color: var(--color-ink-muted); font-size: 0.8rem; float: left;">
       {{ working_day.date|jalali }}
     </span>

@@ -1,4 +1,5 @@
 {% extends "printing/base_print.html" %}
+{% load display_tags %}
 {% block title %}مقایسه سیستم مکانیکی و دیجیتال{% endblock %}
 {% block report_title %}مقایسه سیستم مکانیکی و دیجیتال{% endblock %}
 {% block report_period %}سال {{ year }} — ماه {{ month }}{% endblock %}
@@ -29,7 +30,7 @@
   <tbody>
     {% for row in mechanical_rows %}
     <tr>
-      <td>{{ row.product.name }}</td>
+      <td>{{ row.product.name|persian_product }}</td>
       <td class="numeric">{{ row.beginning_inventory }}</td>
       <td class="numeric">{{ row.total_purchase }}</td>
       <td class="numeric">{{ row.total_test_return }}</td>
@@ -69,7 +70,7 @@
   <tbody>
     {% for row in digital_rows %}
     <tr>
-      <td>{{ row.product.name }}</td>
+      <td>{{ row.product.name|persian_product }}</td>
       <td class="numeric">{{ row.beginning_inventory }}</td>
       <td class="numeric">{{ row.received_quantity }}</td>
       <td class="numeric">{{ row.test_return }}</td>

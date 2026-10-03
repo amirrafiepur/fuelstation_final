@@ -13,18 +13,42 @@ from apps.reports import services as report_services
 from apps.stations.models import Station
 
 
+#: Presentation-only mapping for the single seeded Station row (see
+#: apps/stations/management/commands/seed_station.py), which still stores
+#: its original English identity ("140 Jahan Pour" / "Razavi Khorasan" /
+#: "Mashhad") -- per this project's Persianization task, the stored
+#: values are deliberately left unchanged; only what gets printed is
+#: translated. A station whose raw name doesn't match this known seed
+#: value falls back to its raw DB fields unchanged below, so this never
+#: breaks if the station row is ever renamed to something else.
+_STATION_PERSIAN_DISPLAY = {
+    "140 Jahan Pour": {
+        "name": "جایگاه جهانی‌پور ۱۴۰",
+        "province": "خراسان رضوی",
+        "city": "مشهد",
+    },
+}
+
+
 def get_station_metadata() -> dict:
     """
     Station identity block required on every printed report (name,
-    province, city). Pulled live from the Station row -- never hardcoded
-    strings in the printing layer, so a station rename is reflected
-    automatically.
+    province, city). Pulled live from the Station row; translated to its
+    Persian display form for the known seeded station (see
+    _STATION_PERSIAN_DISPLAY above) without altering the stored value.
     """
     station = Station.objects.first()
+    if not station:
+        return {"name": "", "province": "", "city": ""}
+
+    persian = _STATION_PERSIAN_DISPLAY.get(station.name)
+    if persian:
+        return dict(persian)
+
     return {
-        "name": station.name if station else "",
-        "province": station.province if station else "",
-        "city": station.city if station else "",
+        "name": station.name,
+        "province": station.province,
+        "city": station.city,
     }
 
 

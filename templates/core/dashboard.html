@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load jalali_tags %}
-{% block title %}داشبورد — ۱۴۰ جهانی پور{% endblock %}
+{% load display_tags %}
+{% block title %}داشبورد — ۱۴۰ جهانی‌پور{% endblock %}
 
 {% block content %}
 
@@ -23,8 +24,8 @@
     <h2 class="panel__title">کارکرد مخازن</h2>
     <ul class="tank-list">
       {% for tank in tanks %}
-        <li class="tank-list__item" data-tank-id="{{ tank.id }}" data-product="{{ tank.product.name }}" tabindex="0">
-          <span>{{ tank.product.name }}</span>
+        <li class="tank-list__item" data-tank-id="{{ tank.id }}" data-product="{{ tank.product.name|persian_product }}" tabindex="0">
+          <span>{{ tank.product.name|persian_product }}</span>
           <span style="display:flex; align-items:center; gap:0.75rem;">
             {% if next_required_date %}
             <a href="{% url 'inventory:day_detail' next_required_date|date:'Y-m-d' %}"
@@ -44,7 +45,7 @@
     <h2 class="panel__title">کارکرد نازل‌ها</h2>
     <div class="nozzle-grid" id="nozzle-grid">
       {% for nozzle in nozzles %}
-        <a href="{% url 'reports:nozzle_ledger' %}?nozzle_id={{ nozzle.id }}" class="nozzle-grid__item" data-product="{{ nozzle.tank.product.name }}">{{ nozzle.number }}</a>
+        <a href="{% url 'reports:nozzle_ledger' %}?nozzle_id={{ nozzle.id }}" class="nozzle-grid__item" data-product="{{ nozzle.tank.product.name|persian_product }}">{{ nozzle.number }}</a>
       {% empty %}
         <span style="color: var(--color-ink-muted);">نازلی ثبت نشده است.</span>
       {% endfor %}

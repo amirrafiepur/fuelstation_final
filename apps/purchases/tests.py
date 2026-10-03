@@ -276,8 +276,10 @@ class PurchasesRangeViewTests(_TestCase):
     def test_range_view_shows_both_product_tables(self):
         resp = self.client.get("/purchases/")
         self.assertEqual(resp.status_code, 200)
-        self.assertContains(resp, "Regular")
-        self.assertContains(resp, "Super")
+        # Persian display labels (see apps/core/display.py) -- stored
+        # Product.name values are still "Regular"/"Super".
+        self.assertContains(resp, "بنزین معمولی")
+        self.assertContains(resp, "بنزین سوپر")
 
     def test_range_view_has_exactly_the_six_required_columns_in_order(self):
         working_day = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))

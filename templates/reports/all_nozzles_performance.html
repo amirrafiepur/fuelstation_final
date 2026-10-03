@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load jalali_tags %}
 {% load static %}
+{% load display_tags %}
 {% block title %}لیست اطلاعات فروش{% endblock %}
 {% block extra_head %}
 <script src="{% static 'js/jalali.js' %}"></script>
@@ -44,7 +45,7 @@
         <th style="padding: 0.4rem;">جمع آزمایش</th>
         <th style="padding: 0.4rem;">جمع فروش مکانیکی</th>
         {% for product in products %}
-        <th style="padding: 0.4rem;">فروش فرآورده {{ product.name }}</th>
+        <th style="padding: 0.4rem;">فروش فرآورده {{ product.name|persian_product }}</th>
         {% endfor %}
         <th style="padding: 0.4rem;">مجموع مبلغ کل</th>
       </tr>

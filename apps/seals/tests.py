@@ -86,3 +86,43 @@ class SealHttpTests(TestCase):
         )
         resp = self.client.get("/seals/")
         self.assertContains(resp, "SN-777")
+
+
+class SealFormPersianizationTests(TestCase):
+    """
+    2.3: the نازل dropdown must show "نازل N" (not the model's internal
+    "Nozzle N" __str__). 2.4: the بخش field's options must be Persian,
+    while the stored values (flag_door_1 etc.) are unchanged.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="op_seal_disp", password="testpass123")
+        License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        station = Station.objects.create(name="S2", province="P", city="C")
+        product = Product.objects.create(name="Regular")
+        tank = Tank.objects.create(station=station, product=product, capacity=50000)
+        self.nozzle = Nozzle.objects.create(tank=tank, number=5)
+        self.client.login(username="op_seal_disp", password="testpass123")
+
+    def test_nozzle_dropdown_shows_persian_label_not_english(self):
+        resp = self.client.get("/seals/new/")
+        content = resp.content.decode()
+        self.assertIn("نازل 5", content)
+        self.assertNotIn("Nozzle 5", content)
+
+    def test_section_field_options_are_persian(self):
+        resp = self.client.get("/seals/new/")
+        content = resp.content.decode()
+        for label in ["درب پرچمی 1", "درب پرچمی 2", "درب تلمبه 1", "درب تلمبه 2"]:
+            self.assertIn(label, content)
+        for old_label in ["Flag Door 1", "Flag Door 2", "Pump Door 1", "Pump Door 2"]:
+            self.assertNotIn(old_label, content)
+
+    def test_section_stored_value_unchanged_after_submit(self):
+        resp = self.client.post("/seals/new/", {
+            "nozzle": self.nozzle.id, "section": NozzleSeal.FLAG_DOOR_1,
+            "date": "1405/06/05", "seal_number": "SEAL-1",
+        })
+        self.assertEqual(resp.status_code, 302)
+        seal = NozzleSeal.objects.get()
+        self.assertEqual(seal.section, "flag_door_1")

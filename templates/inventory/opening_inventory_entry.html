@@ -1,8 +1,9 @@
 {% extends "base.html" %}
-{% block title %}موجودی افتتاحیه — {{ tank.product.name }}{% endblock %}
+{% load display_tags %}
+{% block title %}موجودی افتتاحیه — {{ tank.product.name|persian_product }}{% endblock %}
 {% block content %}
 <div class="panel" style="max-width: 480px; margin: 0 auto;">
-  <h2 class="panel__title">موجودی افتتاحیه مخزن {{ tank.product.name }}</h2>
+  <h2 class="panel__title">موجودی افتتاحیه مخزن {{ tank.product.name|persian_product }}</h2>
 
   <p style="font-size: 0.85rem; color: var(--color-ink-muted); margin-bottom: 1rem;">
     اگر موجودی واقعی ابتدای ماه را از دفتر یا سوابق قبلی دارید، آن را وارد کنید.

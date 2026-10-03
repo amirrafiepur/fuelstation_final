@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load display_tags %}
 {% block title %}گزارش ماهانه مخازن{% endblock %}
 {% block content %}
 
@@ -48,7 +49,7 @@
     <tbody>
       {% for row in rows %}
       <tr style="border-bottom: 1px solid var(--color-border);">
-        <td style="padding: 0.4rem;">{{ row.tank.product.name }}</td>
+        <td style="padding: 0.4rem;">{{ row.tank.product.name|persian_product }}</td>
         <td style="padding: 0.4rem;" class="numeric">{{ row.beginning_inventory }}</td>
         <td style="padding: 0.4rem;" class="numeric">{{ row.total_overage }}</td>
         <td style="padding: 0.4rem;" class="numeric">{{ row.total_test_return }}</td>

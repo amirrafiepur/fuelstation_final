@@ -1,5 +1,6 @@
 {% extends "printing/base_print.html" %}
 {% load jalali_tags %}
+{% load display_tags %}
 {% block title %}فهرست خرید{% endblock %}
 {% block report_title %}فهرست خرید{% endblock %}
 {% block report_period %}
@@ -8,7 +9,7 @@
 
 {% block report_body %}
 {% for row in tank_rows %}
-  <h3 style="margin: 1rem 0 0.5rem;">{{ row.tank.product.name }}</h3>
+  <h3 style="margin: 1rem 0 0.5rem;">{{ row.tank.product.name|persian_product }}</h3>
   {% if row.invoices %}
   <table class="print-table">
     <thead>
@@ -35,7 +36,7 @@
     </tbody>
   </table>
   {% else %}
-    <p class="print-empty-note">در بازه انتخاب‌شده خریدی برای {{ row.tank.product.name }} ثبت نشده است.</p>
+    <p class="print-empty-note">در بازه انتخاب‌شده خریدی برای {{ row.tank.product.name|persian_product }} ثبت نشده است.</p>
   {% endif %}
 {% endfor %}
 {% endblock %}

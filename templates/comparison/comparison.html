@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load display_tags %}
 {% block title %}مقایسه سیستم مکانیکی و دیجیتال{% endblock %}
 {% block content %}
 
@@ -52,7 +53,7 @@
     <tbody>
       {% for row in mechanical_rows %}
       <tr style="border-bottom: 1px solid var(--color-border);">
-        <td style="padding: 0.4rem;">{{ row.product.name }}</td>
+        <td style="padding: 0.4rem;">{{ row.product.name|persian_product }}</td>
         <td style="padding: 0.4rem;" class="numeric">{{ row.beginning_inventory }}</td>
         <td style="padding: 0.4rem;" class="numeric">{{ row.total_purchase }}</td>
         <td style="padding: 0.4rem;" class="numeric">{{ row.total_test_return }}</td>
@@ -75,7 +76,7 @@
       {% for row in digital_rows %}
       <a href="{% url 'comparison:digital_entry_edit' row.entry.id %}"
          class="btn" style="display:inline-block; width:auto; padding:0.3rem 0.8rem; font-size:0.78rem;">
-        ورود / ویرایش — {{ row.product.name }}
+        ورود / ویرایش — {{ row.product.name|persian_product }}
       </a>
       {% endfor %}
     </div>
@@ -104,7 +105,7 @@
     <tbody>
       {% for row in digital_rows %}
       <tr style="border-bottom: 1px solid var(--color-border);">
-        <td style="padding: 0.4rem;">{{ row.product.name }}</td>
+        <td style="padding: 0.4rem;">{{ row.product.name|persian_product }}</td>
         <td style="padding: 0.4rem;" class="numeric">{{ row.beginning_inventory }}</td>
         <td style="padding: 0.4rem;" class="numeric">{{ row.received_quantity }}</td>
         <td style="padding: 0.4rem;" class="numeric">{{ row.test_return }}</td>

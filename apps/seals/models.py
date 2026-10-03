@@ -14,10 +14,10 @@ class NozzleSeal(models.Model):
     PUMP_DOOR_1 = "pump_door_1"
     PUMP_DOOR_2 = "pump_door_2"
     SECTION_CHOICES = [
-        (FLAG_DOOR_1, "Flag Door 1"),
-        (FLAG_DOOR_2, "Flag Door 2"),
-        (PUMP_DOOR_1, "Pump Door 1"),
-        (PUMP_DOOR_2, "Pump Door 2"),
+        (FLAG_DOOR_1, "درب پرچمی 1"),
+        (FLAG_DOOR_2, "درب پرچمی 2"),
+        (PUMP_DOOR_1, "درب تلمبه 1"),
+        (PUMP_DOOR_2, "درب تلمبه 2"),
     ]
 
     nozzle = models.ForeignKey(

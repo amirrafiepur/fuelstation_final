@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load jalali_tags %}
+{% load display_tags %}
 {% block title %}موجودی مخازن — {{ working_day.date|jalali }}{% endblock %}
 {% block content %}
 
@@ -11,7 +12,7 @@
   {% for row in rows %}
   <div style="margin-bottom: 1.75rem; border: 1px solid var(--color-border); border-radius: var(--radius); padding: 1rem;">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
-      <h3 style="margin:0; font-size:1rem;">{{ row.tank.product.name }}</h3>
+      <h3 style="margin:0; font-size:1rem;">{{ row.tank.product.name|persian_product }}</h3>
     </div>
 
     {% if row.needs_opening_inventory %}

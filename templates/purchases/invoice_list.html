@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load jalali_tags %}
 {% load static %}
+{% load display_tags %}
 {% block title %}خرید — فهرست{% endblock %}
 {% block extra_head %}
 <script src="{% static 'js/jalali.js' %}"></script>
@@ -34,7 +35,7 @@
   {% for row in tank_rows %}
   <div style="margin-bottom: 1.75rem;">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem;">
-      <h3 style="margin:0; font-size:1rem;">{{ row.tank.product.name }}</h3>
+      <h3 style="margin:0; font-size:1rem;">{{ row.tank.product.name|persian_product }}</h3>
       <a href="{% url 'purchases:purchase_entry' new_entry_date|date:'Y-m-d' row.tank.id %}"
          class="btn" style="display:inline-block; width:auto; padding:0.4rem 0.9rem; font-size:0.85rem;">
         + فاکتور جدید

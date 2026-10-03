@@ -709,8 +709,10 @@ class AllNozzlesPerformanceTests(TestCase):
         resp = self.client.get("/reports/all-nozzles/?start_date=2026-08-01&end_date=2026-08-01")
         content = resp.content.decode()
         labels = [
+            # Persian display labels (see apps/core/display.py) -- stored
+            # Product.name values are still "Regular"/"Super".
             "تاریخ", "جمع کارکرد", "جمع آزمایش", "جمع فروش مکانیکی",
-            "فروش فرآورده Regular", "فروش فرآورده Super", "مجموع مبلغ کل",
+            "فروش فرآورده بنزین معمولی", "فروش فرآورده بنزین سوپر", "مجموع مبلغ کل",
         ]
         for label in labels:
             self.assertIn(label, content)
@@ -1118,8 +1120,10 @@ class MonthlyTankStatementReworkTests(TestCase):
             TankInventory.objects.create(tank=t, working_day=wd1, actual_inventory=Decimal("0"))
 
         resp = self.client.get("/reports/petroleum-monthly/?year=1405&month=5")
-        self.assertContains(resp, "Regular")
-        self.assertContains(resp, "Super")
+        # Persian display labels (see apps/core/display.py) -- stored
+        # Product.name values are still "Regular"/"Super".
+        self.assertContains(resp, "بنزین معمولی")
+        self.assertContains(resp, "بنزین سوپر")
 
     def test_print_pdf_generates_correctly(self):
         wd1 = DailyWorkingDay.objects.create(date=self.day1)

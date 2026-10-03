@@ -1,5 +1,6 @@
 {% extends "printing/base_print.html" %}
 {% load jalali_tags %}
+{% load display_tags %}
 {% block title %}کارکرد تمام نازل‌ها{% endblock %}
 {% block report_title %}کارکرد تمام نازل‌ها{% endblock %}
 {% block report_period %}
@@ -16,7 +17,7 @@
       <th>جمع آزمایش</th>
       <th>جمع فروش مکانیکی</th>
       {% for product in products %}
-      <th>فروش فرآورده {{ product.name }}</th>
+      <th>فروش فرآورده {{ product.name|persian_product }}</th>
       {% endfor %}
       <th>مجموع مبلغ کل</th>
     </tr>

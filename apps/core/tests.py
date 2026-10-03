@@ -6,6 +6,8 @@ from django.test import TestCase
 from apps.license.models import License
 from apps.stations.models import Station, Product, Tank, Nozzle
 
+from .display import persian_product_name
+
 User = get_user_model()
 
 
@@ -121,3 +123,102 @@ class DashboardSmokeTests(TestCase):
 
         resp19 = self.client.get(f"/reports/nozzle-ledger/?nozzle_id={nozzle_19.id}")
         self.assertContains(resp19, "نازل 19 (")
+
+
+class DisplayHelpersTests(TestCase):
+    """
+    apps/core/display.py: Product.name -> Persian display label, without
+    touching the stored value. Stored "Regular"/"Super" are unaffected;
+    an unmapped name (a future third product) passes through unchanged.
+    """
+
+    def test_known_product_names_map_to_persian(self):
+        self.assertEqual(persian_product_name("Regular"), "بنزین معمولی")
+        self.assertEqual(persian_product_name("Super"), "بنزین سوپر")
+
+    def test_unmapped_product_name_passes_through_unchanged(self):
+        self.assertEqual(persian_product_name("Diesel"), "Diesel")
+
+    def test_persian_product_template_filter(self):
+        from django.template import Context, Template
+
+        rendered = Template("{% load display_tags %}{{ name|persian_product }}").render(
+            Context({"name": "Super"})
+        )
+        self.assertEqual(rendered, "بنزین سوپر")
+
+
+class StationDisplayTests(TestCase):
+    """
+    Product names and the station name/location shown in the UI must be
+    Persian, while the underlying Station/Product rows keep their
+    original seeded values (see apps/stations/management/commands/
+    seed_station.py and apps/printing/services.get_station_metadata).
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="op_disp", password="testpass123")
+        License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        self.station = Station.objects.create(
+            name="140 Jahan Pour", province="Razavi Khorasan", city="Mashhad",
+        )
+        regular = Product.objects.create(name="Regular")
+        Tank.objects.create(station=self.station, product=regular, capacity=50000)
+        self.client.login(username="op_disp", password="testpass123")
+
+    def test_dashboard_shows_persian_product_name_not_english(self):
+        resp = self.client.get("/")
+        content = resp.content.decode()
+        self.assertIn("بنزین معمولی", content)
+        self.assertNotIn(">Regular<", content)
+
+    def test_dashboard_station_header_uses_correct_spelling(self):
+        resp = self.client.get("/")
+        content = resp.content.decode()
+        self.assertIn("جهانی\u200cپور", content)
+        self.assertNotIn("جهانی پور", content)  # plain space, the old typo'd rendering
+        self.assertNotIn("جهان\u200cپور", content)  # missing "ی"
+
+    def test_stored_db_values_unchanged(self):
+        self.station.refresh_from_db()
+        self.assertEqual(self.station.name, "140 Jahan Pour")
+        self.assertEqual(self.station.province, "Razavi Khorasan")
+        self.assertEqual(self.station.city, "Mashhad")
+
+    def test_get_station_metadata_returns_persian_for_known_seed(self):
+        from apps.printing.services import get_station_metadata
+
+        meta = get_station_metadata()
+        self.assertEqual(meta["name"], "جایگاه جهانی\u200cپور ۱۴۰")
+        self.assertEqual(meta["province"], "خراسان رضوی")
+        self.assertEqual(meta["city"], "مشهد")
+
+    def test_get_station_metadata_falls_back_for_unknown_station(self):
+        from apps.printing.services import get_station_metadata
+
+        self.station.name = "Some Other Station"
+        self.station.province = "X"
+        self.station.city = "Y"
+        self.station.save()
+
+        meta = get_station_metadata()
+        self.assertEqual(meta["name"], "Some Other Station")
+        self.assertEqual(meta["province"], "X")
+        self.assertEqual(meta["city"], "Y")
+
+    def test_pdf_header_source_html_is_persian(self):
+        """Renders the actual base_print.html header block (the exact
+        HTML WeasyPrint turns into PDF) without needing weasyprint
+        installed."""
+        from django.template import engines
+
+        django_engine = engines["django"]
+        template = django_engine.from_string(
+            "{% extends 'printing/base_print.html' %}"
+            "{% block report_body %}{% endblock %}"
+        )
+        html = template.render({
+            "station": {"name": "جایگاه جهانی\u200cپور ۱۴۰", "province": "خراسان رضوی", "city": "مشهد"},
+        })
+        self.assertIn("جایگاه جهانی\u200cپور ۱۴۰", html)
+        self.assertIn("مشهد، خراسان رضوی", html)

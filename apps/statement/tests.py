@@ -242,6 +242,14 @@ class StatementViewTests(TestCase):
         resp = self.client.get("/statement/?year=1405&month=5")
         self.assertIn("statement/?year=1405&month=5", resp.content.decode())
 
+    def test_digital_sales_form_is_centered(self):
+        """UI fix: the form panel must be centered (margin: 0 auto), like
+        the existing فاکتورهای فروش / واریزی‌ها forms, not stuck to the
+        right edge."""
+        entry = StatementEntry.objects.create(tank=self.tank, year=1405, month=5)
+        resp = self.client.get(f"/statement/entry/{entry.id}/digital-sales/")
+        self.assertIn("margin: 0 auto", resp.content.decode())
+
     def test_digital_sales_form_saves_and_redirects(self):
         entry = StatementEntry.objects.create(tank=self.tank, year=1405, month=5)
         resp = self.client.post(

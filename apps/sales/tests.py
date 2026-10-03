@@ -376,3 +376,82 @@ class PreviousMeterSuggestionHttpTests(_TestCase):
         )
         resp = self.client.get("/sales/invoices/2026-08-03/nozzle/1/")
         self.assertContains(resp, 'value="300.00"')
+
+
+class SalesInvoicePrintTests(_TestCase):
+    """
+    فاکتورهای فروش print button + PDF content: the print button appears
+    on the daily invoice page, and the PDF (verified via its actual
+    source template, since weasyprint isn't installed in every
+    environment) reuses the exact same data as the on-screen page --
+    same totals, same nozzle rows, same Persian product labels.
+    """
+
+    def setUp(self):
+        self.user = _User.objects.create_user(username="op_sip", password="testpass123")
+        _License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        station = Station.objects.create(name="S_sip", province="P", city="C")
+        product = Product.objects.create(name="Regular")
+        self.tank = Tank.objects.create(station=station, product=product, capacity=50000)
+        self.nozzle1 = Nozzle.objects.create(tank=self.tank, number=1)
+        self.nozzle2 = Nozzle.objects.create(tank=self.tank, number=2)
+        self.working_day = _DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        invoice = SalesInvoice.objects.create(working_day=self.working_day, operator=self.user)
+        NozzleSale.objects.create(
+            sales_invoice=invoice, nozzle=self.nozzle1,
+            previous_meter=0, new_meter=100, test=0, sales_rate=Decimal("1200"),
+        )
+        NozzleSale.objects.create(
+            sales_invoice=invoice, nozzle=self.nozzle2,
+            previous_meter=0, new_meter=50, test=0, sales_rate=Decimal("1200"),
+        )
+        self.client.login(username="op_sip", password="testpass123")
+
+    def test_print_button_present_on_invoice_detail_page(self):
+        resp = self.client.get("/sales/invoices/2026-08-01/")
+        content = resp.content.decode()
+        self.assertIn("چاپ / PDF", content)
+        self.assertIn("/print/sales-invoice/2026-08-01/", content)
+
+    def test_pdf_source_html_includes_summary_and_all_nozzle_rows(self):
+        from django.template.loader import render_to_string
+
+        from apps.printing.services import build_sales_invoice_context
+
+        context = build_sales_invoice_context(self.working_day)
+        html = render_to_string("printing/sales_invoice_print.html", context)
+
+        # Date.
+        self.assertIn("1405", html)
+        # Summary totals (same keys/values as the on-screen totals dict).
+        from apps.sales import services as sales_services
+
+        totals = sales_services.get_daily_totals(self.working_day)
+        self.assertIn(str(totals["nozzle_count"]), html)
+        self.assertIn(str(totals["total_sales"]), html)
+        # Both nozzle rows, with the Persian product label.
+        self.assertIn("بنزین معمولی", html)
+        self.assertNotIn(">Regular<", html)
+        self.assertIn("<td class=\"numeric\">1</td>", html)
+        self.assertIn("<td class=\"numeric\">2</td>", html)
+
+    def test_pdf_source_html_matches_view_totals_exactly(self):
+        """The PDF must not recompute totals independently -- it has to
+        reuse the same service call as the view."""
+        from apps.sales import services as sales_services
+
+        view_totals = sales_services.get_daily_totals(self.working_day)
+
+        from apps.printing.services import build_sales_invoice_context
+        print_context = build_sales_invoice_context(self.working_day)
+
+        self.assertEqual(print_context["totals"], view_totals)
+        self.assertEqual(list(print_context["nozzle_sales"]), [
+            NozzleSale.objects.get(nozzle=self.nozzle1),
+            NozzleSale.objects.get(nozzle=self.nozzle2),
+        ])
+
+    def test_pdf_view_requires_login(self):
+        self.client.logout()
+        resp = self.client.get("/print/sales-invoice/2026-08-01/")
+        self.assertNotEqual(resp.status_code, 200)

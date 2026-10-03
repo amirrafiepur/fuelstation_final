@@ -217,6 +217,32 @@ def build_comparison_context(year: int, month: int) -> dict:
     }
 
 
+def build_sales_invoice_context(working_day) -> dict:
+    """
+    "فاکتورهای فروش" daily invoice: reuses the exact same data sources as
+    apps.sales.views.invoice_detail() (sales_services.get_daily_totals()
+    and the same nozzle_sales queryset shape), so the PDF shows exactly
+    what the on-screen page shows for that day -- no recalculation here.
+    """
+    from apps.sales import services as sales_services
+    from apps.sales.models import SalesInvoice, NozzleSale
+
+    invoice = SalesInvoice.objects.filter(working_day=working_day).first()
+    nozzle_sales = (
+        invoice.nozzle_sales.select_related("nozzle", "nozzle__tank__product").order_by("nozzle__number")
+        if invoice
+        else NozzleSale.objects.none()
+    )
+    totals = sales_services.get_daily_totals(working_day)
+
+    return {
+        "station": get_station_metadata(),
+        "working_day": working_day,
+        "nozzle_sales": nozzle_sales,
+        "totals": totals,
+    }
+
+
 def build_purchases_ledger_context(start_date, end_date) -> dict:
     """
     Reuses purchases.services.get_purchase_invoices_in_range() verbatim,

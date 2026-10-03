@@ -5,9 +5,15 @@
 {% block content %}
 
 <div class="panel">
-  <h2 class="panel__title">
-    فاکتور فروش روزانه — <span class="numeric">{{ working_day.date|jalali }}</span>
-  </h2>
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
+    <h2 class="panel__title" style="margin:0;">
+      فاکتور فروش روزانه — <span class="numeric">{{ working_day.date|jalali }}</span>
+    </h2>
+    <a href="{% url 'printing:sales_invoice_print' working_day.date|date:'Y-m-d' %}"
+       target="_blank" class="btn" style="display:inline-block; width:auto; padding:0.5rem 1rem;">
+      چاپ / PDF
+    </a>
+  </div>
 
   {% if not all_registered %}
     <div class="alert alert--warn">

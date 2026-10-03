@@ -123,9 +123,12 @@ class PrintingHttpTests(TestCase):
             self.nozzle, datetime.date(2026, 8, 1), datetime.date(2026, 8, 1)
         )
         html = render_to_string("printing/nozzle_ledger_print.html", context)
-        self.assertIn("140 Jahan Pour", html)
-        self.assertIn("Razavi Khorasan", html)
-        self.assertIn("Mashhad", html)
+        # Persian display labels (see apps/printing/services.py's
+        # _STATION_PERSIAN_DISPLAY) -- the stored Station row is still
+        # "140 Jahan Pour" / "Razavi Khorasan" / "Mashhad".
+        self.assertIn("جایگاه جهانی\u200cپور ۱۴۰", html)
+        self.assertIn("خراسان رضوی", html)
+        self.assertIn("مشهد", html)
 
         # Also confirm the PDF itself renders without error and is
         # non-trivial in size (i.e. actually contains page content).
@@ -144,9 +147,12 @@ class PrintingHttpTests(TestCase):
 
         context = printing_services.build_petroleum_monthly_context(1405, 5)
         html = render_to_string("printing/petroleum_monthly_print.html", context)
-        self.assertIn("140 Jahan Pour", html)
-        self.assertIn("Razavi Khorasan", html)
-        self.assertIn("Mashhad", html)
+        # Persian display labels (see apps/printing/services.py's
+        # _STATION_PERSIAN_DISPLAY) -- the stored Station row is still
+        # "140 Jahan Pour" / "Razavi Khorasan" / "Mashhad".
+        self.assertIn("جایگاه جهانی\u200cپور ۱۴۰", html)
+        self.assertIn("خراسان رضوی", html)
+        self.assertIn("مشهد", html)
 
         resp = self.client.get("/print/petroleum-monthly/?year=1405&month=5")
         self.assertEqual(resp.status_code, 200)

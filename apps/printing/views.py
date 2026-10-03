@@ -122,6 +122,17 @@ def comparison_print(request):
 
 
 @login_required
+def sales_invoice_print(request, date):
+    from apps.workday.models import DailyWorkingDay
+
+    working_day = DailyWorkingDay.objects.get(date=datetime.date.fromisoformat(date))
+
+    context = printing_services.build_sales_invoice_context(working_day)
+    filename = f"sales-invoice-{date}.pdf"
+    return _render_pdf_response("printing/sales_invoice_print.html", context, filename)
+
+
+@login_required
 def deposit_decade_print(request):
     year = int(request.GET["year"])
     month = int(request.GET["month"])

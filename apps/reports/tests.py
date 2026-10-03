@@ -1004,8 +1004,28 @@ class PetroleumLedgerReworkTests(TestCase):
         super_product = Product.objects.create(name="Super")
         super_tank = Tank.objects.create(station=self.tank.station, product=super_product, capacity=30000)
         resp = self.client.get("/reports/petroleum-ledger/")
-        self.assertContains(resp, "Regular")
-        self.assertContains(resp, "Super")
+        # Persian display labels (see apps/core/display.py) -- stored
+        # Product.name values are still "Regular"/"Super".
+        self.assertContains(resp, "بنزین معمولی")
+        self.assertContains(resp, "بنزین سوپر")
+
+    def test_pdf_source_html_shows_persian_product_name(self):
+        """Renders the actual printing/petroleum_ledger_print.html template
+        (the exact HTML WeasyPrint turns into PDF) without needing
+        weasyprint installed -- verifies the PDF, not just the on-screen
+        UI, shows the Persian product name."""
+        from django.template.loader import render_to_string
+
+        from apps.printing.services import build_petroleum_ledger_context
+
+        context = build_petroleum_ledger_context(
+            self.tank, datetime.date(2026, 7, 23), datetime.date(2026, 7, 23),
+        )
+        html = render_to_string("printing/petroleum_ledger_print.html", context)
+
+        self.assertIn("بنزین معمولی", html)
+        self.assertNotIn(">Regular<", html)
+        self.assertNotIn("— Regular", html)
 
     def test_print_pdf_generates_with_both_section_headers(self):
         wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))

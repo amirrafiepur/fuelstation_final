@@ -14,4 +14,5 @@ urlpatterns = [
     path("deposits-decade/", views.deposit_decade_print, name="deposit_decade_print"),
     path("statement/", views.statement_print, name="statement_print"),
     path("comparison/", views.comparison_print, name="comparison_print"),
+    path("sales-invoice/<str:date>/", views.sales_invoice_print, name="sales_invoice_print"),
 ]

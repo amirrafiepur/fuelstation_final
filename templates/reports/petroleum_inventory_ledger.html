@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load jalali_tags %}
 {% load static %}
+{% load display_tags %}
 {% block title %}دفتر موجودی و عملیات — روزانه{% endblock %}
 {% block extra_head %}
 <script src="{% static 'js/jalali.js' %}"></script>
@@ -17,7 +18,7 @@
         <option value="">— انتخاب کنید —</option>
         {% for tank in tanks %}
           <option value="{{ tank.id }}" {% if selected_tank.id == tank.id %}selected{% endif %}>
-            {{ tank.product.name }}
+            {{ tank.product.name|persian_product }}
           </option>
         {% endfor %}
       </select>
@@ -38,7 +39,7 @@
 
   {% if selected_tank %}
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem;">
-      <h3 style="font-size: 0.95rem; margin:0;">{{ selected_tank.product.name }}</h3>
+      <h3 style="font-size: 0.95rem; margin:0;">{{ selected_tank.product.name|persian_product }}</h3>
       {% if rows %}
       <a href="{% url 'printing:petroleum_ledger_print' selected_tank.id %}?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}"
          target="_blank" class="btn" style="display:inline-block; width:auto; padding:0.4rem 0.9rem; font-size:0.85rem;">

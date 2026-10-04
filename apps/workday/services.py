@@ -12,10 +12,12 @@ calendar day is simply required in order.
 import calendar
 import datetime
 
+from django.db.models import Count
 from django.utils import timezone
 
 from .models import DailyWorkingDay
 from apps.license import services as license_services
+from apps.stations.models import Nozzle
 
 
 def get_accounting_start_date() -> datetime.date | None:
@@ -69,9 +71,24 @@ def can_enter_date(date: datetime.date) -> tuple[bool, str]:
 def get_incomplete_days(up_to: datetime.date | None = None) -> list[datetime.date]:
     """
     Every calendar date from the accounting start date through `up_to`
-    (default: today) that does NOT have a DailyWorkingDay row with status
-    'complete', in chronological order. Used to drive the "you must
-    complete these days first" flow.
+    (default: today) that is not yet complete, in chronological order.
+    Drives both the dashboard's "N incomplete days" notice and the
+    global Date Control's default date.
+
+    A day counts as complete if EITHER:
+      - every registered Nozzle has a NozzleSale row for that date's
+        فاکتور فروش (the actual, always-correct source of truth: see
+        apps/sales/services.py:validate_all_nozzles_registered, which
+        this mirrors), OR
+      - its DailyWorkingDay.status is explicitly COMPLETE (close_day()
+        was called for it).
+
+    The nozzle check is primary and self-healing -- it reflects live
+    data on every call, so it can't go stale and correctly recognizes
+    already-fully-entered historical days with no backfill needed. The
+    status check is kept for any caller that still explicitly closes a
+    day (see close_day()); it never narrows what counts as complete,
+    only widens it.
     """
     start = get_accounting_start_date()
     if start is None:
@@ -81,11 +98,25 @@ def get_incomplete_days(up_to: datetime.date | None = None) -> list[datetime.dat
     if up_to < start:
         return []
 
-    complete_dates = set(
+    status_complete_dates = set(
         DailyWorkingDay.objects.filter(
             status=DailyWorkingDay.COMPLETE, date__gte=start, date__lte=up_to
         ).values_list("date", flat=True)
     )
+
+    total_nozzles = Nozzle.objects.count()
+    nozzle_complete_dates = set()
+    if total_nozzles > 0:
+        nozzle_complete_dates = set(
+            DailyWorkingDay.objects.filter(date__gte=start, date__lte=up_to)
+            .annotate(registered_nozzle_count=Count(
+                "sales_invoice__nozzle_sales__nozzle", distinct=True
+            ))
+            .filter(registered_nozzle_count__gte=total_nozzles)
+            .values_list("date", flat=True)
+        )
+
+    complete_dates = status_complete_dates | nozzle_complete_dates
 
     missing = []
     current = start

@@ -161,6 +161,13 @@ def nozzle_entry(request, date, nozzle_number=None):
             _, still_missing = sales_services.validate_all_nozzles_registered(working_day)
             if still_missing:
                 return redirect("sales:nozzle_entry", date=date, nozzle_number=still_missing[0])
+            # All 26 nozzles are now registered for this day -- this is
+            # the one and only completion requirement for فاکتور فروش
+            # (see workday/services.py:get_incomplete_days, which treats
+            # this condition as complete regardless of this call too;
+            # closing the day here keeps DailyWorkingDay.status accurate
+            # for any other reader of it).
+            workday_services.close_day(working_day.date)
             messages.success(request, "تمام نازل‌های الزامی برای این روز ثبت شدند.")
             return redirect("sales:invoice_detail", date=date)
     else:

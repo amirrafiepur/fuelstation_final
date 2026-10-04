@@ -229,6 +229,19 @@ class StatementViewTests(TestCase):
         ]:
             self.assertIn(label, content)
 
+    def test_month_selector_offers_exactly_twelve_months(self):
+        """Bug fix: {% for m in "123456789101112" %} iterates that STRING
+        character by character (15 chars), producing 15 options instead
+        of 12 -- now it's 12 explicit options, same fix as گزارش ماهانه
+        مخازن and مقایسه سیستم مکانیکی و دیجیتال."""
+        resp = self.client.get("/statement/?year=1405&month=5")
+        content = resp.content.decode()
+        self.assertEqual(content.count('<option value="'), 12)
+        for m in range(1, 13):
+            self.assertIn(f'<option value="{m}"', content)
+        for m in range(13, 16):
+            self.assertNotIn(f'<option value="{m}"', content)
+
     def test_upper_table_no_longer_has_total_received_column(self):
         """Task 1: "جمع کل رسیده ها" must be gone from the upper table.
         The secondary table's unrelated "جمع کل رسیده" column (no "ها")

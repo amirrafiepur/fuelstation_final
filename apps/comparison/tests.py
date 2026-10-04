@@ -132,6 +132,19 @@ class ComparisonViewTests(TestCase):
         ]:
             self.assertIn(label, content)
 
+    def test_month_selector_offers_exactly_twelve_months(self):
+        """Bug fix: {% for m in "123456789101112" %} iterates that STRING
+        character by character (15 chars), producing 15 options instead
+        of 12 -- now it's 12 explicit options, same fix as گزارش ماهانه
+        مخازن and صورت وضعیت ماهانه."""
+        resp = self.client.get("/comparison/?year=1405&month=5")
+        content = resp.content.decode()
+        self.assertEqual(content.count('<option value="'), 12)
+        for m in range(1, 13):
+            self.assertIn(f'<option value="{m}"', content)
+        for m in range(13, 16):
+            self.assertNotIn(f'<option value="{m}"', content)
+
     def test_mechanical_section_order_before_digital(self):
         resp = self.client.get("/comparison/?year=1405&month=5")
         content = resp.content.decode()

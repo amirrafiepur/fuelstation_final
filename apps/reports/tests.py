@@ -1173,3 +1173,24 @@ class MonthlyTankStatementReworkTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "رسیده")
         self.assertContains(resp, "خارج شده")
+
+    def test_month_selector_offers_exactly_twelve_months(self):
+        """Bug fix: the ماه <select> was built from
+        {% for m in "123456789101112" %}, which iterates that STRING
+        CHARACTER BY CHARACTER (15 chars: 1,2,3,4,5,6,7,8,9,1,0,1,1,1,2),
+        producing 15 options (values 1-15 via forloop.counter) instead
+        of 12 -- so picking month 13-15 hit the "no changes detected"-
+        -esque out-of-range failure. Now it's 12 explicit options."""
+        resp = self.client.get("/reports/petroleum-monthly/?year=1405&month=5")
+        content = resp.content.decode()
+        self.assertEqual(content.count('<option value="'), 12)
+        for m in range(1, 13):
+            self.assertIn(f'<option value="{m}"', content)
+        for m in range(13, 16):
+            self.assertNotIn(f'<option value="{m}"', content)
+
+    def test_month_thirteen_is_not_a_selectable_option(self):
+        resp = self.client.get("/reports/petroleum-monthly/?year=1405&month=5")
+        self.assertNotContains(resp, 'value="13"')
+        self.assertNotContains(resp, 'value="14"')
+        self.assertNotContains(resp, 'value="15"')

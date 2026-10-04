@@ -15,9 +15,18 @@
     <div>
       <label class="form-label">ماه</label>
       <select class="form-input" onchange="window.location = '?year={{ year }}&month=' + this.value">
-        {% for m in "123456789101112" %}
-          <option value="{{ forloop.counter }}" {% if forloop.counter == month %}selected{% endif %}>{{ forloop.counter }}</option>
-        {% endfor %}
+        <option value="1" {% if month == 1 %}selected{% endif %}>۱</option>
+        <option value="2" {% if month == 2 %}selected{% endif %}>۲</option>
+        <option value="3" {% if month == 3 %}selected{% endif %}>۳</option>
+        <option value="4" {% if month == 4 %}selected{% endif %}>۴</option>
+        <option value="5" {% if month == 5 %}selected{% endif %}>۵</option>
+        <option value="6" {% if month == 6 %}selected{% endif %}>۶</option>
+        <option value="7" {% if month == 7 %}selected{% endif %}>۷</option>
+        <option value="8" {% if month == 8 %}selected{% endif %}>۸</option>
+        <option value="9" {% if month == 9 %}selected{% endif %}>۹</option>
+        <option value="10" {% if month == 10 %}selected{% endif %}>۱۰</option>
+        <option value="11" {% if month == 11 %}selected{% endif %}>۱۱</option>
+        <option value="12" {% if month == 12 %}selected{% endif %}>۱۲</option>
       </select>
     </div>
     {% if rows %}

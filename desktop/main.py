@@ -16,9 +16,11 @@ from __future__ import annotations
 
 import argparse
 import atexit
+import logging
 import os
 import shutil
 import socket
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -38,15 +40,140 @@ def _project_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
+logger = logging.getLogger("fuelstation")
+
+# Number of automatic pre-migration database copies that are kept.
+BACKUPS_TO_KEEP = 10
+
+
 def _configure_environment() -> None:
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.desktop")
     os.environ.setdefault("PYTHONUNBUFFERED", "1")
+
+    # A windowed (console=False) executable has no console, so sys.stdout /
+    # sys.stderr are None. Anything that writes to them (Django management
+    # commands, print) would then crash.
+    for stream_name in ("stdout", "stderr"):
+        if getattr(sys, stream_name) is None:
+            setattr(sys, stream_name, open(os.devnull, "w", encoding="utf-8"))
+
+    if getattr(sys, "frozen", False):
+        bundle_dir = Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
+
+        # WeasyPrint skips its own DLL-directory setup when frozen, and the
+        # GTK/Pango DLLs it loads are shipped inside the bundle.
+        if hasattr(os, "add_dll_directory"):
+            try:
+                os.add_dll_directory(str(bundle_dir))
+            except OSError:
+                pass
+
+        # Fontconfig (used by Pango) must not look for its configuration at
+        # the build machine's install prefix; use the bundled one.
+        fontconfig_dir = bundle_dir / "fontconfig"
+        fontconfig_file = fontconfig_dir / "fonts.conf"
+        if fontconfig_file.is_file():
+            os.environ.setdefault("FONTCONFIG_PATH", str(fontconfig_dir))
+            os.environ.setdefault("FONTCONFIG_FILE", str(fontconfig_file))
+
+
+def _backup_sqlite_file(db_path: Path, backup_dir: Path, keep: int = BACKUPS_TO_KEEP) -> Path:
+    """
+    Make a consistent copy of a SQLite database using SQLite's online backup
+    API (safe even if the file is in use), then prune old automatic backups.
+    """
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    backup_path = backup_dir / f"db-before-migrate-{timestamp}.sqlite3"
+    counter = 1
+    while backup_path.exists():
+        backup_path = backup_dir / f"db-before-migrate-{timestamp}-{counter}.sqlite3"
+        counter += 1
+
+    source = sqlite3.connect(str(db_path))
+    try:
+        destination = sqlite3.connect(str(backup_path))
+        try:
+            source.backup(destination)
+        finally:
+            destination.close()
+    finally:
+        source.close()
+
+    old_backups = sorted(backup_dir.glob("db-before-migrate-*.sqlite3"))
+    for stale in old_backups[:-keep]:
+        try:
+            stale.unlink()
+        except OSError:
+            pass
+
+    return backup_path
+
+
+def _backup_before_migrations() -> None:
+    """
+    If an EXISTING customer database is about to receive new migrations (i.e.
+    the application was just updated), copy it to the backups folder first.
+
+    A fresh installation (no database yet) and a database that is already up
+    to date are left alone. If the backup cannot be made, startup is aborted
+    rather than migrating customer data without a safety copy.
+    """
+    from django.conf import settings
+    from django.db import connection
+    from django.db.migrations.executor import MigrationExecutor
+
+    backup_dir = getattr(settings, "BACKUP_DIR", None)
+    if backup_dir is None:
+        return  # source/development run
+
+    db_path = Path(settings.DATABASES["default"]["NAME"])
+    if not db_path.is_file() or db_path.stat().st_size == 0:
+        return  # fresh installation: nothing to protect
+
+    executor = MigrationExecutor(connection)
+    pending = executor.migration_plan(executor.loader.graph.leaf_nodes())
+    connection.close()
+    if not pending:
+        return
+
+    backup_path = _backup_sqlite_file(db_path, Path(backup_dir))
+    logger.info(
+        "Database backed up to %s before applying %d migration(s).",
+        backup_path,
+        len(pending),
+    )
+
+
+def _log_fatal_server_error() -> None:
+    """Persist a server start-up failure; a windowed app has no console."""
+    try:
+        import traceback
+        from config.runtime import get_app_data_dir
+
+        data_dir = get_app_data_dir()
+        if data_dir is None:
+            return
+        log_dir = data_dir / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        with open(log_dir / "startup-error.log", "a", encoding="utf-8") as handle:
+            handle.write(f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
+            handle.write(traceback.format_exc())
+    except Exception:
+        pass
 
 
 def _run_server(port: int) -> int:
     """Run Waitress in the child process."""
     _configure_environment()
+    try:
+        return _serve_django(port)
+    except BaseException:
+        _log_fatal_server_error()
+        raise
 
+
+def _serve_django(port: int) -> int:
     # Import Django/Waitress only in server mode so the GUI process does not
     # carry Django server startup imports unnecessarily.
     import django
@@ -55,12 +182,19 @@ def _run_server(port: int) -> int:
     django.setup()
 
     # A packaged installation has its mutable SQLite database under
-    # LocalAppData. Run migrations automatically on startup so a fresh
-    # installation is structurally ready before the GUI opens. The fixed
-    # station/nozzle configuration is safe to seed idempotently. We do NOT
-    # silently create a license or operator account because those are
-    # business/security decisions outside the approved architecture.
+    # LocalAppData (see config/runtime.py), never inside the application
+    # files, so replacing the application with a newer version keeps the
+    # customer's data. Run migrations automatically on startup so a fresh
+    # installation -- or an updated one -- is structurally ready before the
+    # GUI opens; an existing database is copied to the backups folder first
+    # if it is about to receive new migrations. The fixed station/nozzle
+    # configuration is safe to seed idempotently (get_or_create only; it
+    # never overwrites existing values). We do NOT silently create a license
+    # or operator account because those are business/security decisions
+    # outside the approved architecture.
     from django.core.management import call_command
+
+    _backup_before_migrations()
     call_command("migrate", interactive=False, verbosity=0)
     call_command("seed_station", verbosity=0)
 

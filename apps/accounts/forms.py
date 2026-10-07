@@ -27,6 +27,10 @@ class FirstOperatorSetupForm(UserCreationForm):
     Operator.set_security_answer/check_security_answer) -- the view is
     responsible for calling those, this form only captures the raw input."""
 
+    setup_password = forms.CharField(
+        label="رمز راه‌اندازی",
+        widget=forms.PasswordInput(attrs={"class": "form-input", "autofocus": True}),
+    )
     security_question = forms.CharField(
         label="یک سوال رمزی در صورت فراموش کردن رمز عبور خود وارد کنید:",
         widget=forms.TextInput(attrs={"class": "form-input"}),

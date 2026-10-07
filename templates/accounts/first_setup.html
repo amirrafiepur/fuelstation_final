@@ -8,6 +8,12 @@
       <p style="color: var(--color-ink-muted); font-size: 0.85rem;">راه‌اندازی اولیه سامانه</p>
     </div>
 
+    {% if locked %}
+    <div class="alert alert--info">
+      راه‌اندازی اولیه به‌دلیل تعداد تلاش‌های ناموفق، برای همیشه غیرفعال شده است.
+      برای ادامه با پشتیبانی تماس بگیرید.
+    </div>
+    {% else %}
     <div class="alert alert--info">
       اولین حساب کاربری این سامانه را ایجاد کنید. این حساب تنها حساب کاربری برنامه خواهد بود.
       پس از ایجاد آن، دوره ۳۶۵ روزه لایسنس به‌صورت خودکار آغاز می‌شود.
@@ -21,6 +27,11 @@
 
     <form method="post">
       {% csrf_token %}
+      <div class="form-group">
+        <label class="form-label" for="{{ form.setup_password.id_for_label }}">{{ form.setup_password.label }}</label>
+        {{ form.setup_password }}
+        {% for error in form.setup_password.errors %}<div class="form-error">{{ error }}</div>{% endfor %}
+      </div>
       <div class="form-group">
         <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
         {{ form.username }}
@@ -48,6 +59,7 @@
       </div>
       <button type="submit" class="btn">ایجاد حساب و شروع لایسنس</button>
     </form>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

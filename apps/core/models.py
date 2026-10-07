@@ -15,6 +15,14 @@ class AppConfig(models.Model):
 
     last_logged_in_username = models.CharField(max_length=150, blank=True)
 
+    # راه‌اندازی اولیه setup-password attempt tracking (see
+    # apps/accounts/views.py:first_operator_setup). Stored here, not in
+    # the session, specifically so a restart can never reset the count
+    # or the lock -- both persist in the database like everything else
+    # in AppConfig.
+    setup_failed_attempts = models.PositiveIntegerField(default=0)
+    setup_locked = models.BooleanField(default=False)
+
     class Meta:
         verbose_name = "Application Configuration"
         verbose_name_plural = "Application Configuration"

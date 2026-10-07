@@ -14,7 +14,13 @@ from .forms import (
     OperatorSetPasswordForm,
     SecurityAnswerForm,
 )
-from .models import Operator
+from .models import Operator, verify_setup_password
+
+# After this many incorrect راه‌اندازی اولیه setup-password attempts, the
+# setup process is permanently locked for this installation (see
+# first_operator_setup below and AppConfig.setup_failed_attempts/
+# setup_locked, which persist the count so a restart can't reset it).
+MAX_SETUP_PASSWORD_ATTEMPTS = 10
 
 
 User = get_user_model()
@@ -60,17 +66,46 @@ def first_operator_setup(request):
     """
     Create the only operator on a fresh installation.
 
+    Gated by a separate راه‌اندازی اولیه setup password (see
+    apps/accounts/models.py:verify_setup_password -- a distinct
+    credential from the license renewal password in apps/license/, never
+    touched here): the account is created only once the correct setup
+    password is supplied alongside valid account fields. Each incorrect
+    setup-password attempt is counted on AppConfig (persisted in the
+    database, so a restart cannot reset it); after
+    MAX_SETUP_PASSWORD_ATTEMPTS wrong attempts, setup is permanently
+    locked and this view refuses to render the form again, for this
+    installation, forever.
+
     The first successful account creation atomically creates the Operator
     profile (with its security question/answer for later password
     recovery) and starts the 365-day license. Once any User exists, this
-    route is permanently unavailable for that installation.
+    route is permanently unavailable for that installation (the
+    first_run_required() check above the lock check, unaffected by it).
     """
     if not first_run_required():
         return redirect("accounts:login")
 
+    config = AppConfig.get_solo()
+    if config.setup_locked:
+        return render(request, "accounts/first_setup.html", {"locked": True})
+
     if request.method == "POST":
         form = FirstOperatorSetupForm(request.POST)
-        if form.is_valid():
+        setup_password_candidate = request.POST.get("setup_password", "")
+
+        if not verify_setup_password(setup_password_candidate):
+            config.setup_failed_attempts += 1
+            if config.setup_failed_attempts >= MAX_SETUP_PASSWORD_ATTEMPTS:
+                config.setup_locked = True
+            config.save(update_fields=["setup_failed_attempts", "setup_locked"])
+
+            if config.setup_locked:
+                return render(request, "accounts/first_setup.html", {"locked": True})
+
+            form.is_valid()  # populate cleaned_data/errors for the other fields too
+            form.add_error("setup_password", "رمز راه‌اندازی نادرست است.")
+        elif form.is_valid():
             with transaction.atomic():
                 user = form.save()
                 operator = Operator(
@@ -82,7 +117,6 @@ def first_operator_setup(request):
                 license_services.activate_license(duration_days=365)
 
             auth_login(request, user)
-            config = AppConfig.get_solo()
             config.last_logged_in_username = user.get_username()
             config.save(update_fields=["last_logged_in_username"])
             return redirect("core:dashboard")

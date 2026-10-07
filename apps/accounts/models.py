@@ -16,11 +16,43 @@ Password recovery ("forgot password"):
     django.contrib.auth.hashers.make_password), verified with
     check_password(), exactly like the license renewal password
     elsewhere in this project (see apps/license/models.py).
+
+راه‌اندازی اولیه setup-password credential handling (SETUP_PASSWORD_HASH
+below), mirroring apps/license/models.py's RENEWAL_PASSWORD_HASH exactly:
+  - The setup password is NEVER stored in plaintext anywhere in this
+    project (source, templates, JS, fixtures, comments, logs, or this
+    file).
+  - Only a securely generated Django password hash (PBKDF2, via
+    django.contrib.auth.hashers.make_password) is stored below.
+  - Verification uses django.contrib.auth.hashers.check_password(),
+    which is constant-time and salted -- never a raw string comparison.
+  - This is a SEPARATE credential from the license renewal password
+    (apps/license/models.py:RENEWAL_PASSWORD_HASH) -- the two are
+    unrelated and this one never touches the license app.
 """
 
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import models
+
+
+# Securely generated hash of the configured راه‌اندازی اولیه setup
+# password. The plaintext password itself is not present anywhere in
+# the codebase -- only this hash, produced once via
+# django.contrib.auth.hashers.make_password(). To change the setup
+# password, generate a new hash the same way and replace this value; do
+# not attempt to store or derive the plaintext from it.
+SETUP_PASSWORD_HASH = (
+    "pbkdf2_sha256$1000000$3bLl05O2rWw6owAQLHef5w$"
+    "BoRymzpg/OolbRTMc4xFKn/bwSDZQbDoe31Dx6dzU+k="
+)
+
+
+def verify_setup_password(candidate: str) -> bool:
+    """Constant-time, salted verification against SETUP_PASSWORD_HASH.
+    The plaintext password is never compared directly and never
+    logged."""
+    return check_password(candidate, SETUP_PASSWORD_HASH)
 
 
 class Operator(models.Model):

@@ -18,10 +18,10 @@
   </thead>
   <tbody>
     <tr>
-      <td class="numeric">{{ totals.nozzle_count }}</td>
-      <td class="numeric">{{ totals.total_operation }}</td>
-      <td class="numeric">{{ totals.total_test }}</td>
-      <td class="numeric">{{ totals.total_sales }}</td>
+      <td class="numeric">{{ totals.nozzle_count|trim_zeros }}</td>
+      <td class="numeric">{{ totals.total_operation|trim_zeros }}</td>
+      <td class="numeric">{{ totals.total_test|trim_zeros }}</td>
+      <td class="numeric">{{ totals.total_sales|trim_zeros }}</td>
     </tr>
   </tbody>
 </table>
@@ -46,13 +46,13 @@
     <tr>
       <td class="numeric">{{ sale.nozzle.number }}</td>
       <td>{{ sale.nozzle.tank.product.name|persian_product }}</td>
-      <td class="numeric">{{ sale.previous_meter }}</td>
-      <td class="numeric">{{ sale.new_meter }}</td>
-      <td class="numeric">{{ sale.operation }}</td>
-      <td class="numeric">{{ sale.test }}</td>
-      <td class="numeric">{{ sale.mechanical_sales }}</td>
-      <td class="numeric">{{ sale.sales_rate }}</td>
-      <td class="numeric">{{ sale.total_amount }}</td>
+      <td class="numeric">{{ sale.previous_meter|trim_zeros }}</td>
+      <td class="numeric">{{ sale.new_meter|trim_zeros }}</td>
+      <td class="numeric">{{ sale.operation|trim_zeros }}</td>
+      <td class="numeric">{{ sale.test|trim_zeros }}</td>
+      <td class="numeric">{{ sale.mechanical_sales|trim_zeros }}</td>
+      <td class="numeric">{{ sale.sales_rate|trim_zeros }}</td>
+      <td class="numeric">{{ sale.total_amount|trim_zeros }}</td>
     </tr>
     {% endfor %}
   </tbody>

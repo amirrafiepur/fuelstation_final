@@ -378,6 +378,135 @@ class PreviousMeterSuggestionHttpTests(_TestCase):
         self.assertContains(resp, 'value="300.00"')
 
 
+class NozzleEntryOrderTests(_TestCase):
+    """
+    Task: فاکتورهای فروش entry sequence must be
+    1->2->...->18->25->26->19->20->21->22->23->24, not plain ascending
+    order -- see services.NOZZLE_ENTRY_ORDER and its single use in
+    validate_all_nozzles_registered(), which drives both the initial
+    "jump to first missing nozzle" redirect and the "advance after
+    saving" flow.
+    """
+
+    def setUp(self):
+        self.user = _User.objects.create_user(username="op_order", password="testpass123")
+        _License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        station = Station.objects.create(name="S_order", province="P", city="C")
+        product = Product.objects.create(name="Regular")
+        self.tank = Tank.objects.create(station=station, product=product, capacity=50000)
+        for n in range(1, 27):
+            Nozzle.objects.create(tank=self.tank, number=n)
+        self.client.login(username="op_order", password="testpass123")
+        self.date = "2026-08-01"
+
+    def test_missing_numbers_follow_the_required_sequence(self):
+        working_day = _DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        complete, missing = services.validate_all_nozzles_registered(working_day)
+        self.assertFalse(complete)
+        expected = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+                    25, 26, 19, 20, 21, 22, 23, 24]
+        self.assertEqual(missing, expected)
+
+    def test_entry_jumps_from_eighteen_to_twenty_five(self):
+        def save(n):
+            return self.client.post(
+                f"/sales/invoices/{self.date}/nozzle/{n}/",
+                {"previous_meter": "0", "new_meter": "10", "test": "0", "sales_rate": "1200"},
+            )
+        for n in range(1, 18):  # save nozzles 1..17
+            save(n)
+        resp = save(18)
+        self.assertRedirects(resp, f"/sales/invoices/{self.date}/nozzle/25/")
+
+    def test_entry_jumps_from_twenty_six_to_nineteen(self):
+        def save(n):
+            return self.client.post(
+                f"/sales/invoices/{self.date}/nozzle/{n}/",
+                {"previous_meter": "0", "new_meter": "10", "test": "0", "sales_rate": "1200"},
+            )
+        for n in list(range(1, 19)) + [25]:  # save 1..18, then 25
+            save(n)
+        resp = save(26)
+        self.assertRedirects(resp, f"/sales/invoices/{self.date}/nozzle/19/")
+
+    def test_entry_completes_after_twenty_four(self):
+        def save(n):
+            return self.client.post(
+                f"/sales/invoices/{self.date}/nozzle/{n}/",
+                {"previous_meter": "0", "new_meter": "10", "test": "0", "sales_rate": "1200"},
+            )
+        for n in list(range(1, 19)) + [25, 26] + list(range(19, 24)):
+            save(n)
+        resp = save(24)  # the 26th and final nozzle
+        self.assertRedirects(resp, f"/sales/invoices/{self.date}/")
+
+    def test_nozzle_entry_next_jumps_to_nozzle_one_first(self):
+        resp = self.client.get(f"/sales/invoices/{self.date}/nozzle/")
+        self.assertRedirects(resp, f"/sales/invoices/{self.date}/nozzle/1/")
+
+    def test_nozzle_ids_and_total_count_unaffected(self):
+        """Scoping check: this is a UI/workflow ordering only -- nozzle
+        IDs/numbers themselves and the total count are untouched."""
+        self.assertEqual(Nozzle.objects.count(), 26)
+        self.assertEqual(
+            sorted(Nozzle.objects.values_list("number", flat=True)),
+            list(range(1, 27)),
+        )
+
+
+class InvoiceDisplayTrimsTrailingZerosTests(_TestCase):
+    """
+    Task: فاکتورهای فروش shows 35 instead of 35.00, while the stored
+    DecimalField value (and everything editable, i.e. the نازل entry
+    form) stays exactly as entered -- this is a display-only change.
+    """
+
+    def setUp(self):
+        self.user = _User.objects.create_user(username="op_trim", password="testpass123")
+        _License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        station = Station.objects.create(name="S_trim", province="P", city="C")
+        product = Product.objects.create(name="Regular")
+        self.tank = Tank.objects.create(station=station, product=product, capacity=50000)
+        self.nozzle = Nozzle.objects.create(tank=self.tank, number=1)
+        self.working_day = _DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        invoice = SalesInvoice.objects.create(working_day=self.working_day, operator=self.user)
+        self.sale = NozzleSale.objects.create(
+            sales_invoice=invoice, nozzle=self.nozzle,
+            previous_meter=Decimal("0"), new_meter=Decimal("35"), test=Decimal("0"),
+            sales_rate=Decimal("1200"),
+        )
+        self.client.login(username="op_trim", password="testpass123")
+
+    def test_invoice_detail_page_shows_trimmed_values(self):
+        resp = self.client.get("/sales/invoices/2026-08-01/")
+        content = resp.content.decode()
+        self.assertIn('class="numeric">35<', content)  # operation column, not "35.00"
+        self.assertNotIn("35.00", content)
+
+    def test_invoice_list_page_shows_trimmed_values(self):
+        resp = self.client.get("/sales/invoices/")
+        content = resp.content.decode()
+        self.assertNotIn("35.00", content)
+
+    def test_stored_decimal_value_is_completely_unchanged(self):
+        self.client.get("/sales/invoices/2026-08-01/")  # render the page
+        self.sale.refresh_from_db()
+        self.assertEqual(self.sale.new_meter, Decimal("35.00"))
+        self.assertEqual(self.sale.operation, Decimal("35.00"))
+
+    def test_nozzle_entry_edit_form_input_is_unaffected(self):
+        """Editable form inputs are out of scope for this display-only
+        change -- the existing value attribute behavior is preserved."""
+        resp = self.client.get("/sales/invoices/2026-08-01/nozzle/1/")
+        self.assertContains(resp, 'value="35.00"')
+
+    def test_meaningful_fractional_value_still_shows_in_full(self):
+        self.sale.new_meter = Decimal("36.25")
+        self.sale.save()
+        resp = self.client.get("/sales/invoices/2026-08-01/")
+        self.assertIn("36.25", resp.content.decode())
+
+
 class SalesInvoicePrintTests(_TestCase):
     """
     فاکتورهای فروش print button + PDF content: the print button appears
@@ -423,12 +552,15 @@ class SalesInvoicePrintTests(_TestCase):
 
         # Date.
         self.assertIn("1405", html)
-        # Summary totals (same keys/values as the on-screen totals dict).
+        # Summary totals (same keys/values as the on-screen totals dict,
+        # trimmed of a trailing .00 for display -- see
+        # apps/core/display.py:trim_trailing_zeros).
         from apps.sales import services as sales_services
 
         totals = sales_services.get_daily_totals(self.working_day)
         self.assertIn(str(totals["nozzle_count"]), html)
-        self.assertIn(str(totals["total_sales"]), html)
+        from apps.core.display import trim_trailing_zeros
+        self.assertIn(trim_trailing_zeros(totals["total_sales"]), html)
         # Both nozzle rows, with the Persian product label.
         self.assertIn("بنزین معمولی", html)
         self.assertNotIn(">Regular<", html)

@@ -64,8 +64,10 @@
           <td style="padding: 0.4rem;" class="numeric">{{ inv.quantity }}</td>
           <td style="padding: 0.4rem;" class="numeric">{{ inv.purchase_rate }}</td>
           <td style="padding: 0.4rem;" class="numeric">{{ inv.total_amount }}</td>
-          <td style="padding: 0.4rem;">
+          <td style="padding: 0.4rem; white-space: nowrap;">
             <a href="{% url 'purchases:purchase_edit' inv.working_day.date|date:'Y-m-d' inv.pk %}">ویرایش</a>
+            &nbsp;|&nbsp;
+            <a href="{% url 'purchases:purchase_delete' inv.working_day.date|date:'Y-m-d' inv.pk %}" style="color: var(--color-danger);">حذف فاکتور</a>
           </td>
         </tr>
         {% endfor %}

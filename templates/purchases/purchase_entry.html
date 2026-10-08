@@ -11,7 +11,7 @@
     </span>
   </h2>
 
-  <form method="post">
+  <form method="post" id="purchase-form">
     {% csrf_token %}
 
     <div class="form-group">
@@ -42,4 +42,25 @@
     <a href="{% url 'purchases:invoice_list' %}">بازگشت به فهرست خریدها</a>
   </p>
 </div>
+
+<script>
+  // Enter-key navigation (minimize mouse usage): Enter in any field
+  // except the last moves focus to the next field in form order,
+  // instead of submitting early. The last field's Enter still submits
+  // the form normally -- existing submit behavior is unchanged. Works
+  // for however many fields the form has, in whatever order they
+  // appear, so it never needs updating if fields are added/reordered.
+  (function () {
+    var form = document.getElementById('purchase-form');
+    var fields = Array.prototype.slice.call(form.querySelectorAll('input:not([type="hidden"])'));
+    fields.forEach(function (field, index) {
+      field.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && index < fields.length - 1) {
+          e.preventDefault();
+          fields[index + 1].focus();
+        }
+      });
+    });
+  })();
+</script>
 {% endblock %}

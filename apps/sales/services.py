@@ -101,11 +101,38 @@ def get_previous_new_meter(nozzle: Nozzle) -> Decimal | None:
     return last_sale.new_meter if last_sale else None
 
 
+# Required فاکتورهای فروش entry sequence: 1→2→...→18, then 25→26, then
+# 19→20→...→24 -- matching the station's physical pump/nozzle layout
+# rather than plain ascending nozzle number. This is a UI/workflow
+# ordering only; it never changes Nozzle.number, the database, or any
+# calculation -- see validate_all_nozzles_registered()'s use of it below
+# (the single place that drives both the initial "jump to first missing
+# nozzle" redirect and the "advance to next nozzle after saving" flow).
+NOZZLE_ENTRY_ORDER = [
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+    25, 26,
+    19, 20, 21, 22, 23, 24,
+]
+
+
+def _nozzle_entry_sort_key(nozzle_number: int) -> int:
+    """Position of `nozzle_number` in NOZZLE_ENTRY_ORDER. A number not
+    listed there (e.g. a future 27th nozzle added later) sorts after
+    every listed one, in its own ascending numeric order, so this never
+    breaks for a station layout this constant doesn't yet know about."""
+    try:
+        return NOZZLE_ENTRY_ORDER.index(nozzle_number)
+    except ValueError:
+        return len(NOZZLE_ENTRY_ORDER) + nozzle_number
+
+
 def validate_all_nozzles_registered(working_day) -> tuple[bool, list[int]]:
     """
-    Returns (all_registered, missing_nozzle_numbers). A working day cannot
-    be marked complete (see workday/services.py:close_day) until every
-    Nozzle has a NozzleSale row for it.
+    Returns (all_registered, missing_nozzle_numbers) -- the latter in the
+    required فاکتورهای فروش entry sequence (NOZZLE_ENTRY_ORDER above),
+    not plain ascending order. A working day cannot be marked complete
+    (see workday/services.py:close_day) until every Nozzle has a
+    NozzleSale row for it.
     """
     all_nozzle_numbers = set(Nozzle.objects.values_list("number", flat=True))
 
@@ -117,7 +144,7 @@ def validate_all_nozzles_registered(working_day) -> tuple[bool, list[int]]:
     except SalesInvoice.DoesNotExist:
         registered_numbers = set()
 
-    missing = sorted(all_nozzle_numbers - registered_numbers)
+    missing = sorted(all_nozzle_numbers - registered_numbers, key=_nozzle_entry_sort_key)
     return (len(missing) == 0, missing)
 
 

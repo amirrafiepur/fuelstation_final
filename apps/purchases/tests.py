@@ -253,6 +253,133 @@ class PurchaseWorkflowHttpTests(_TestCase):
         self.assertContains(resp, "700")
 
 
+class PurchaseEntryEnterKeyNavigationTests(_TestCase):
+    """
+    Task: Enter in شماره ی بارنامه -> focus شماره ی نفتکش -> Enter ->
+    next field -> ... -> نرخ (the last field, whose Enter still submits
+    normally). Verified structurally (field order, hidden CSRF token
+    excluded, keydown/Enter wiring present) since this project has no
+    JS test runner -- the same level of verification this project's
+    only other JS keyboard shortcut (نازل entry's F2) also has.
+    """
+
+    def setUp(self):
+        self.user = _User.objects.create_user(username="op_enter", password="testpass123")
+        _License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        station = Station.objects.create(name="S_enter", province="P", city="C")
+        product = Product.objects.create(name="Regular")
+        self.tank = Tank.objects.create(station=station, product=product, capacity=50000)
+        self.client.login(username="op_enter", password="testpass123")
+
+    def _get(self):
+        return self.client.get(f"/purchases/2026-08-01/tank/{self.tank.id}/new/")
+
+    def test_form_has_an_id_for_the_navigation_script_to_target(self):
+        self.assertContains(self._get(), 'id="purchase-form"')
+
+    def test_keydown_enter_navigation_script_present(self):
+        content = self._get().content.decode()
+        self.assertIn("keydown", content)
+        self.assertIn("Enter", content)
+        self.assertIn("preventDefault", content)
+        self.assertIn(".focus()", content)
+
+    def test_hidden_csrf_token_excluded_from_the_field_list(self):
+        """The CSRF token is also an <input>; it must not become "the
+        first field" in the Enter-navigation order."""
+        content = self._get().content.decode()
+        self.assertIn('input:not([type="hidden"])', content)
+
+    def test_fields_appear_in_the_required_order_in_the_markup(self):
+        """شماره ی بارنامه -> شماره ی نفتکش -> مقدار -> نرخ, in that
+        order in the DOM -- the script walks them in document order, so
+        this order IS the Enter-navigation order."""
+        content = self._get().content.decode()
+        positions = [
+            content.index('id="id_program_number"'),
+            content.index('id="id_tanker_number"'),
+            content.index('id="id_quantity"'),
+            content.index('id="id_purchase_rate"'),
+        ]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_existing_submit_behavior_and_fields_unchanged(self):
+        """Scoping check: this is a keyboard-navigation addition only --
+        existing field labels, submission, and business logic are
+        untouched."""
+        resp = self.client.post(
+            f"/purchases/2026-08-01/tank/{self.tank.id}/new/",
+            {"program_number": "BN-1", "tanker_number": "TN-1", "quantity": "100", "purchase_rate": "1200"},
+        )
+        self.assertEqual(resp.status_code, 302)
+        invoice = PurchaseInvoice.objects.get()
+        self.assertEqual(invoice.program_number, "BN-1")
+        self.assertEqual(invoice.tanker_number, "TN-1")
+
+
+class PurchaseInvoiceDeletionTests(_TestCase):
+    """
+    Task: "حذف فاکتور" action per invoice row, mirroring the project's
+    existing deletion pattern (apps/seals/views.py:seal_delete) exactly
+    -- GET shows a confirmation page and changes nothing; only POST
+    actually deletes; cancelling (never submitting) leaves the invoice
+    and the list untouched.
+    """
+
+    def setUp(self):
+        self.user = _User.objects.create_user(username="op_del", password="testpass123")
+        _License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        station = Station.objects.create(name="S_del", province="P", city="C")
+        product = Product.objects.create(name="Regular")
+        self.tank = Tank.objects.create(station=station, product=product, capacity=50000)
+        self.working_day = DailyWorkingDay.objects.create(date=datetime.date(2026, 8, 1))
+        self.invoice = PurchaseInvoice.objects.create(
+            working_day=self.working_day, tank=self.tank,
+            program_number="BN-1", tanker_number="TN-1",
+            quantity=1000, purchase_rate=Decimal("1200"),
+        )
+        self.client.login(username="op_del", password="testpass123")
+
+    def _delete_url(self):
+        return f"/purchases/2026-08-01/invoice/{self.invoice.pk}/delete/"
+
+    def test_delete_link_present_on_the_list_page(self):
+        resp = self.client.get("/purchases/?start_date=2026-08-01&end_date=2026-08-01")
+        self.assertContains(resp, "حذف فاکتور")
+        self.assertContains(resp, self._delete_url())
+
+    def test_get_shows_confirmation_and_does_not_delete(self):
+        resp = self.client.get(self._delete_url())
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "بله، حذف شود")
+        self.assertTrue(PurchaseInvoice.objects.filter(pk=self.invoice.pk).exists())
+
+    def test_confirmed_post_deletes_the_invoice(self):
+        resp = self.client.post(self._delete_url())
+        self.assertRedirects(resp, "/purchases/")
+        self.assertFalse(PurchaseInvoice.objects.filter(pk=self.invoice.pk).exists())
+
+    def test_cancelling_leaves_the_invoice_untouched(self):
+        """Never submitting the confirm form (i.e. just visiting the
+        cancel link / navigating away) must leave the record intact."""
+        self.client.get(self._delete_url())  # visit confirmation page only
+        self.assertTrue(PurchaseInvoice.objects.filter(pk=self.invoice.pk).exists())
+
+    def test_deleted_invoice_no_longer_appears_in_the_list(self):
+        self.client.post(self._delete_url())
+        resp = self.client.get("/purchases/?start_date=2026-08-01&end_date=2026-08-01")
+        self.assertNotContains(resp, "BN-1")
+
+    def test_other_invoices_and_unrelated_purchase_logic_unaffected(self):
+        other = PurchaseInvoice.objects.create(
+            working_day=self.working_day, tank=self.tank,
+            program_number="BN-2", tanker_number="TN-2",
+            quantity=500, purchase_rate=Decimal("1300"),
+        )
+        self.client.post(self._delete_url())
+        self.assertTrue(PurchaseInvoice.objects.filter(pk=other.pk).exists())
+
+
 class PurchasesRangeViewTests(_TestCase):
     """Covers the reworked خرید section: a date-range view with two
     separate Regular/Super tables, the six specified columns, the

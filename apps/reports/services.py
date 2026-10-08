@@ -235,15 +235,29 @@ def petroleum_inventory_operations_ledger(tank: Tank, start_date, end_date):
     relabeled per the UI-level renames already established elsewhere in
     this project (see apps/inventory's "موجودی غیرواقعی"/"سرک" renames).
 
-    Both cumulative totals follow the same carry-forward rule
-    independently: on the first day of the selected range, "previous
-    day" is treated as 0, so جمع کل == که روز's own جمع روزانه; every
-    day after that, جمع کل = روز قبل's جمع کل + امروز's جمع روزانه.
-    موجودی واقعی (an absolute tank balance, not a delta) is added into
-    جمع روزانه‌ی خارج شده every day by design, so جمع کل خارج شده does
-    NOT reconcile against جمع کل رسیده (a running sum of small daily
-    deltas) -- the two cumulative totals are independent running sums,
-    not two views of the same underlying quantity.
+    Both cumulative totals follow the same carry-forward rule: every day
+    after the first row of the selected range, جمع کل = روز قبل's جمع کل
+    + امروز's جمع روزانه. موجودی واقعی (an absolute tank balance, not a
+    delta) is added into جمع روزانه‌ی خارج شده every day by design, so
+    جمع کل خارج شده does NOT reconcile against جمع کل رسیده (a running
+    sum of small daily deltas) -- the two cumulative totals are
+    independent running sums, not two views of the same underlying
+    quantity.
+
+    For جمع کل رسیده specifically, the first row of the selected range is
+    NOT always seeded from 0: if that row is also this tank's actual
+    first working day ever (no earlier TankInventory row exists for this
+    tank at all), موجودی افتتاحیه is treated as "جمع کل رسیده of day
+    zero" and carried in as the starting point -- reusing
+    inventory_services.get_previous_balance_and_overage()'s existing
+    OpeningInventory lookup (and its existing 0-default when none was
+    supplied) verbatim, the same source already used for Total
+    Inventory's own day-1 Previous Balance. A sub-range that starts later
+    in an already-running tank's history (not the tank's true first
+    working day) is unaffected by this and keeps the existing "starts
+    from 0 for display purposes" convention. جمع کل خارج شده is
+    untouched by this -- the task that introduced it only concerns جمع کل
+    رسیده.
     """
     from apps.sales import services as sales_services
     from apps.purchases import services as purchase_services
@@ -279,9 +293,18 @@ def petroleum_inventory_operations_ledger(tank: Tank, start_date, end_date):
             ).values_list("actual_inventory", flat=True).first()
             daily_received = daily_purchase + test_return + overage
             daily_dispatched = daily_sales + test_return + shortage + actual_inventory
-            cumulative_received = (
-                daily_received if cumulative_received is None else cumulative_received + daily_received
-            )
+
+            if cumulative_received is None:
+                is_tanks_first_working_day = not TankInventory.objects.filter(
+                    tank=tank, working_day__date__lt=wd.date
+                ).exists()
+                if is_tanks_first_working_day:
+                    opening_balance, _ = inventory_services.get_previous_balance_and_overage(tank, wd)
+                    cumulative_received = opening_balance + daily_received
+                else:
+                    cumulative_received = daily_received
+            else:
+                cumulative_received = cumulative_received + daily_received
             cumulative_dispatched = (
                 daily_dispatched if cumulative_dispatched is None else cumulative_dispatched + daily_dispatched
             )

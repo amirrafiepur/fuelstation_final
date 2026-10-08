@@ -28,10 +28,10 @@
   {% endif %}
 
   <div class="dashboard-columns" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 1.5rem;">
-    <div><div class="form-label">تعداد نازل</div><div class="numeric" style="font-size:1.3rem;">{{ totals.nozzle_count }}</div></div>
-    <div><div class="form-label">مجموع عملکرد</div><div class="numeric" style="font-size:1.3rem;">{{ totals.total_operation }}</div></div>
-    <div><div class="form-label">مجموع تست</div><div class="numeric" style="font-size:1.3rem;">{{ totals.total_test }}</div></div>
-    <div><div class="form-label">مجموع فروش</div><div class="numeric" style="font-size:1.3rem;">{{ totals.total_sales }}</div></div>
+    <div><div class="form-label">تعداد نازل</div><div class="numeric" style="font-size:1.3rem;">{{ totals.nozzle_count|trim_zeros }}</div></div>
+    <div><div class="form-label">مجموع عملکرد</div><div class="numeric" style="font-size:1.3rem;">{{ totals.total_operation|trim_zeros }}</div></div>
+    <div><div class="form-label">مجموع تست</div><div class="numeric" style="font-size:1.3rem;">{{ totals.total_test|trim_zeros }}</div></div>
+    <div><div class="form-label">مجموع فروش</div><div class="numeric" style="font-size:1.3rem;">{{ totals.total_sales|trim_zeros }}</div></div>
   </div>
 
   {% if nozzle_sales %}
@@ -55,13 +55,13 @@
       <tr style="border-bottom: 1px solid var(--color-border);">
         <td style="padding: 0.5rem;" class="numeric">{{ sale.nozzle.number }}</td>
         <td style="padding: 0.5rem;">{{ sale.nozzle.tank.product.name|persian_product }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ sale.previous_meter }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ sale.new_meter }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ sale.operation }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ sale.test }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ sale.mechanical_sales }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ sale.sales_rate }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ sale.total_amount }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.previous_meter|trim_zeros }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.new_meter|trim_zeros }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.operation|trim_zeros }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.test|trim_zeros }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.mechanical_sales|trim_zeros }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.sales_rate|trim_zeros }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ sale.total_amount|trim_zeros }}</td>
         <td style="padding: 0.5rem;">
           <a href="{% url 'sales:nozzle_entry' working_day.date|date:'Y-m-d' sale.nozzle.number %}">ویرایش</a>
         </td>

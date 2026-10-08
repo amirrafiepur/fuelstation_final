@@ -917,12 +917,16 @@ class PetroleumLedgerReworkTests(TestCase):
         """
         جمع کل رسیده (روز N) = جمع کل رسیده (روز N-1) + جمع رسیده (روز N)
         جمع کل خارج شده (روز N) = جمع کل خارج شده (روز N-1) + جمع خارج شده (روز N)
-        with day 1's "previous day" cumulative treated as 0, so day 1's
-        جمع کل == that day's own جمع روزانه exactly. This does NOT check
-        the two sides against each other -- that isn't part of the
-        design (see apps/reports/services.py's docstring on
-        petroleum_inventory_operations_ledger): موجودی واقعی is an
-        absolute balance, not a delta, so summing it daily into جمع
+
+        For جمع کل رسیده, day 1 here is this tank's actual first working
+        day ever, so its "previous" is موجودی افتتاحیه (OpeningInventory),
+        not 0 -- i.e. day 1's جمع کل رسیده = موجودی افتتاحیه + آن روز's
+        جمع روزانه. For جمع کل خارج شده, day 1's "previous day" is still
+        treated as 0 (unaffected by this rule -- see this function's own
+        docstring). This does NOT check the two sides against each other
+        -- that isn't part of the design (see apps/reports/services.py's
+        docstring on petroleum_inventory_operations_ledger): موجودی واقعی
+        is an absolute balance, not a delta, so summing it daily into جمع
         خارج شده intentionally does not reconcile against جمع رسیده's
         running total of small daily deltas.
         """
@@ -951,8 +955,13 @@ class PetroleumLedgerReworkTests(TestCase):
         day1, day2, day3 = rows
         day1_received = day1["received_rows"][0]
 
-        # Day 1: جمع کل == جمع روزانه (previous day's cumulative treated as 0).
-        self.assertEqual(day1_received["cumulative_received"], day1_received["daily_received"])
+        # Day 1 is this tank's actual first working day: جمع کل رسیده =
+        # موجودی افتتاحیه + جمع روزانه (NOT just جمع روزانه alone).
+        self.assertEqual(
+            day1_received["cumulative_received"],
+            Decimal("1000") + day1_received["daily_received"],
+        )
+        # جمع کل خارج شده's day-1 "previous" is still 0, unaffected.
         self.assertEqual(day1["cumulative_dispatched"], day1["daily_dispatched"])
 
         # Day 2: جمع کل (روز ۲) == جمع کل (روز ۱) + جمع روزانه (روز ۲).
@@ -976,6 +985,65 @@ class PetroleumLedgerReworkTests(TestCase):
             day3["cumulative_dispatched"],
             day2["cumulative_dispatched"] + day3["daily_dispatched"],
         )
+
+    def test_first_working_day_received_cumulative_uses_opening_inventory(self):
+        """Task: جمع کل رسیده for the tank's actual first working day =
+        جمع روزانه‌ی رسیده + موجودی افتتاحیه (treating موجودی افتتاحیه as
+        "جمع کل رسیده of day zero"), not 0."""
+        wd1 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("750"), effective_month=datetime.date(2026, 7, 23),
+        )
+        PurchaseInvoice.objects.create(working_day=wd1, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd1, actual_inventory=Decimal("100"))
+
+        from apps.reports import services as report_services
+        rows = report_services.petroleum_inventory_operations_ledger(
+            self.tank, datetime.date(2026, 7, 23), datetime.date(2026, 7, 23)
+        )
+        day1_received = rows[0]["received_rows"][0]
+        self.assertEqual(
+            day1_received["cumulative_received"],
+            Decimal("750") + day1_received["daily_received"],
+        )
+
+    def test_first_working_day_with_no_opening_inventory_defaults_to_zero(self):
+        """No OpeningInventory row supplied -> existing 0-default
+        (inventory_services.get_previous_balance_and_overage's own
+        established fallback), not a new behavior invented here."""
+        wd1 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        PurchaseInvoice.objects.create(working_day=wd1, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd1, actual_inventory=Decimal("100"))
+
+        from apps.reports import services as report_services
+        rows = report_services.petroleum_inventory_operations_ledger(
+            self.tank, datetime.date(2026, 7, 23), datetime.date(2026, 7, 23)
+        )
+        day1_received = rows[0]["received_rows"][0]
+        self.assertEqual(day1_received["cumulative_received"], day1_received["daily_received"])
+
+    def test_sub_range_starting_after_the_tanks_true_first_day_still_starts_from_zero(self):
+        """Scoping check: a later sub-range's first displayed row is NOT
+        the tank's actual first working day, so it must keep the
+        existing, unrelated "starts from 0 for this view" convention --
+        the opening-inventory fix must not leak into this case."""
+        wd1 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        wd2 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 24))
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("750"), effective_month=datetime.date(2026, 7, 23),
+        )
+        PurchaseInvoice.objects.create(working_day=wd1, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd1, actual_inventory=Decimal("100"))
+        PurchaseInvoice.objects.create(working_day=wd2, tank=self.tank, quantity=Decimal("50"), purchase_rate=Decimal("1200"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd2, actual_inventory=Decimal("150"))
+
+        from apps.reports import services as report_services
+        # Query only day 2 -- not this tank's true first working day.
+        rows = report_services.petroleum_inventory_operations_ledger(
+            self.tank, datetime.date(2026, 7, 24), datetime.date(2026, 7, 24)
+        )
+        day2_received = rows[0]["received_rows"][0]
+        self.assertEqual(day2_received["cumulative_received"], day2_received["daily_received"])
 
     def test_page_shows_both_section_headers_and_all_fourteen_columns(self):
         wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))

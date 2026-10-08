@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -6,7 +7,7 @@ from django.test import TestCase
 from apps.license.models import License
 from apps.stations.models import Station, Product, Tank, Nozzle
 
-from .display import persian_product_name
+from .display import persian_product_name, trim_trailing_zeros
 
 User = get_user_model()
 
@@ -146,6 +147,44 @@ class DisplayHelpersTests(TestCase):
             Context({"name": "Super"})
         )
         self.assertEqual(rendered, "بنزین سوپر")
+
+
+class TrimTrailingZerosTests(TestCase):
+    """
+    apps/core/display.py:trim_trailing_zeros() -- removes an unnecessary
+    trailing .00 (or similar) from a DISPLAYED number only; the stored
+    DecimalField value itself is never touched by this (it's a pure
+    formatting function applied after reading a value for display).
+    """
+
+    def test_whole_number_with_trailing_zero_decimals_is_trimmed(self):
+        self.assertEqual(trim_trailing_zeros(Decimal("35.00")), "35")
+        self.assertEqual(trim_trailing_zeros(Decimal("100.00")), "100")
+
+    def test_meaningful_fractional_values_are_preserved(self):
+        self.assertEqual(trim_trailing_zeros(Decimal("1.5")), "1.5")
+        self.assertEqual(trim_trailing_zeros(Decimal("1.25")), "1.25")
+        self.assertEqual(trim_trailing_zeros(Decimal("1.10")), "1.1")
+
+    def test_zero_and_negative_values(self):
+        self.assertEqual(trim_trailing_zeros(Decimal("0.00")), "0")
+        self.assertEqual(trim_trailing_zeros(Decimal("-5.00")), "-5")
+
+    def test_never_produces_scientific_notation(self):
+        self.assertEqual(trim_trailing_zeros(Decimal("1200.00")), "1200")
+        self.assertNotIn("E", trim_trailing_zeros(Decimal("100.00")).upper())
+
+    def test_non_numeric_values_pass_through_unchanged(self):
+        self.assertIsNone(trim_trailing_zeros(None))
+        self.assertEqual(trim_trailing_zeros(""), "")
+
+    def test_trim_zeros_template_filter(self):
+        from django.template import Context, Template
+
+        rendered = Template("{% load display_tags %}{{ value|trim_zeros }}").render(
+            Context({"value": Decimal("35.00")})
+        )
+        self.assertEqual(rendered, "35")
 
 
 class StationDisplayTests(TestCase):

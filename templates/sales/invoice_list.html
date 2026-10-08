@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load jalali_tags %}
+{% load display_tags %}
 {% block title %}فهرست فاکتورهای فروش{% endblock %}
 {% block content %}
 <div class="panel">
@@ -28,11 +29,11 @@
         <td style="padding: 0.5rem;" class="numeric">{{ row.working_day.date|jalali }}</td>
         <td style="padding: 0.5rem;" class="numeric">{{ row.invoice.entry_time|date:"H:i" }}</td>
         <td style="padding: 0.5rem;">{{ row.invoice.operator }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ row.nozzle_count }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ row.total_operation }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ row.total_test }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ row.total_sales }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ row.total_amount }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ row.nozzle_count|trim_zeros }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ row.total_operation|trim_zeros }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ row.total_test|trim_zeros }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ row.total_sales|trim_zeros }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ row.total_amount|trim_zeros }}</td>
       </tr>
       {% endfor %}
     </tbody>

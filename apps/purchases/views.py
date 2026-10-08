@@ -183,3 +183,22 @@ def purchase_edit(request, date, pk):
         request, "purchases/purchase_entry.html",
         {"form": form, "working_day": working_day, "tank": invoice.tank, "editing": True},
     )
+
+
+@login_required
+def purchase_delete(request, date, pk):
+    """
+    Deletes a PurchaseInvoice. Mirrors apps/seals/views.py:seal_delete --
+    the project-wide deletion pattern: only ever deletes on POST (an
+    explicit confirm-page click), never on GET, so a GET here always
+    just shows the confirmation page without making any change.
+    """
+    working_day, _ = DailyWorkingDay.objects.get_or_create(date=_parse_date(date))
+    invoice = get_object_or_404(PurchaseInvoice, pk=pk, working_day=working_day)
+
+    if request.method == "POST":
+        invoice.delete()
+        messages.success(request, "فاکتور خرید حذف شد.")
+        return redirect("purchases:invoice_list")
+
+    return render(request, "purchases/purchase_confirm_delete.html", {"invoice": invoice})

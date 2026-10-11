@@ -112,6 +112,16 @@ def statement_print(request):
 
 
 @login_required
+def seals_print(request):
+    start_date = datetime.date.fromisoformat(request.GET["start_date"])
+    end_date = datetime.date.fromisoformat(request.GET["end_date"])
+
+    context = printing_services.build_seals_context(start_date, end_date)
+    filename = f"seals-{start_date}-{end_date}.pdf"
+    return _render_pdf_response("printing/seals_print.html", context, filename)
+
+
+@login_required
 def comparison_print(request):
     year = int(request.GET["year"])
     month = int(request.GET["month"])

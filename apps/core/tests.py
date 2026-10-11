@@ -45,6 +45,34 @@ class DashboardSmokeTests(TestCase):
         self.assertContains(resp, "کارکرد مخازن")
         self.assertContains(resp, "کارکرد نازل\u200cها")
 
+    def test_escape_navigation_script_present_site_wide(self):
+        """Task 4B: Escape returns to the previous view/state. Verified
+        structurally (this project has no JS test runner, same
+        verification level as its other JS keyboard shortcuts): the
+        listener is present, targets Escape, uses the browser's own
+        history (the existing navigation architecture -- every filter/
+        selection in this app is already a URL, so history.back() IS
+        "the previous state"), and is guarded against interfering with
+        inputs/selects/editable content."""
+        self.client.login(username="op1", password="testpass123")
+        resp = self.client.get("/")
+        content = resp.content.decode()
+        self.assertIn("'Escape'", content)
+        self.assertIn("history.back()", content)
+        self.assertIn("keydown", content)
+        self.assertIn("'input'", content)
+        self.assertIn("'select'", content)
+        self.assertIn("isContentEditable", content)
+
+    def test_escape_script_present_on_other_sections_too(self):
+        """Confirms this lives in the shared base template, not just the
+        dashboard -- i.e. it genuinely supports navigation between
+        sections, not only within one page."""
+        self.client.login(username="op1", password="testpass123")
+        for url in ["/seals/", "/deposits/", "/statement/"]:
+            resp = self.client.get(url)
+            self.assertIn("history.back()", resp.content.decode())
+
     def test_dashboard_shows_all_26_nozzles(self):
         self.client.login(username="op1", password="testpass123")
         resp = self.client.get("/")

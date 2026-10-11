@@ -189,6 +189,74 @@ class ReportsHttpTests(TestCase):
 # TankInventory, and report recalculation after editing source data).
 # ---------------------------------------------------------------------------
 
+class NozzleLedgerArrowKeyNavigationTests(TestCase):
+    """
+    Task 4A: ArrowUp/ArrowDown navigate نازل‌ها گزارش کارکرد هر نازل
+    between nozzles 1..26, clamped at both ends. Verified structurally
+    (script present, correctly wired, boundary clamp logic present) --
+    this project has no JS test runner, same verification level as the
+    project's other JS keyboard shortcuts -- plus a functional check
+    that every target nozzle (1 and 26, the boundaries) the script would
+    navigate to is itself reachable and renders correctly, and that the
+    date range it carries through is preserved.
+    """
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="op_arrow", password="testpass123")
+        License.objects.create(start_date=datetime.date(2026, 8, 1), duration_days=365)
+        station = Station.objects.create(name="S_arrow", province="P", city="C")
+        product = Product.objects.create(name="Regular")
+        tank = Tank.objects.create(station=station, product=product, capacity=50000)
+        self.nozzles = {n: Nozzle.objects.create(tank=tank, number=n) for n in range(1, 27)}
+        self.client.login(username="op_arrow", password="testpass123")
+
+    def test_select_has_an_id_for_the_script_to_target(self):
+        resp = self.client.get("/reports/nozzle-ledger/?nozzle_id=" + str(self.nozzles[10].id))
+        self.assertContains(resp, 'id="nozzle-select"')
+
+    def test_arrow_key_script_present_and_correctly_wired(self):
+        resp = self.client.get("/reports/nozzle-ledger/?nozzle_id=" + str(self.nozzles[10].id))
+        content = resp.content.decode()
+        self.assertIn("ArrowUp", content)
+        self.assertIn("ArrowDown", content)
+        self.assertIn("keydown", content)
+        self.assertIn("nozzle-select", content)
+        # Ignored while typing/focused on a control.
+        self.assertIn("'input'", content)
+        self.assertIn("'select'", content)
+        self.assertIn("isContentEditable", content)
+
+    def test_options_are_in_ascending_nozzle_order_one_through_twenty_six(self):
+        """The script walks <option>s in DOM order to find next/previous
+        -- this order IS the navigation order, so it must be exactly
+        1..26 ascending."""
+        resp = self.client.get("/reports/nozzle-ledger/?nozzle_id=" + str(self.nozzles[1].id))
+        content = resp.content.decode()
+        positions = [content.index(f'value="{self.nozzles[n].id}"') for n in range(1, 27)]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_every_nozzle_from_one_to_twenty_six_is_a_reachable_target(self):
+        """Boundary + general reachability check: nozzle 1 and nozzle 26
+        (the two ends the clamp logic must respect) both render fine as
+        navigation targets, as does a middle nozzle."""
+        for n in (1, 10, 26):
+            resp = self.client.get(f"/reports/nozzle-ledger/?nozzle_id={self.nozzles[n].id}")
+            self.assertEqual(resp.status_code, 200)
+            self.assertContains(resp, f"نازل {n}")
+
+    def test_date_range_is_preserved_across_nozzle_selection(self):
+        """Confirms the select's own navigation (which the script
+        triggers via a change event) carries start_date/end_date through
+        unchanged -- the script does not touch the date filter."""
+        resp = self.client.get(
+            f"/reports/nozzle-ledger/?nozzle_id={self.nozzles[5].id}"
+            "&start_date=2026-07-01&end_date=2026-07-31"
+        )
+        content = resp.content.decode()
+        self.assertIn("start_date=2026-07-01", content)
+        self.assertIn("end_date=2026-07-31", content)
+
+
 class Phase7RuleComplianceTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="op2", password="testpass123")
@@ -322,7 +390,8 @@ class Phase7RuleComplianceTests(TestCase):
         total, theoretical, shortage, overage = inventory_services.compute_tank_inventory(self.tank, wd1)
 
         expected_total_1 = row["daily_purchase"] + row["test_return"] + overage
-        expected_total_2 = row["daily_sales"] + row["test_return"] + shortage + Decimal("905")
+        # No + actual_inventory -- see test_daily_dispatched_formula above.
+        expected_total_2 = row["daily_sales"] + row["test_return"] + shortage
 
         self.assertEqual(row["daily_total_1"], expected_total_1)
         self.assertEqual(row["daily_total_2"], expected_total_2)
@@ -850,7 +919,9 @@ class PetroleumLedgerReworkTests(TestCase):
         self.assertEqual(received["daily_received"], Decimal("110"))
 
     def test_daily_dispatched_formula(self):
-        # جمع فروش مکانیکی + جمع آزمایش + کسری + موجودی واقعی = جمع روزانه‌ی خارج شده
+        # جمع روزانه خارج شده = جمع فروش مکانیکی + مجموع آزمایش + کسری
+        # (موجودی واقعی does NOT contribute -- a previous version of this
+        # formula mistakenly added it in; corrected here.)
         wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
         OpeningInventory.objects.create(
             tank=self.tank, opening_quantity=Decimal("1000"), effective_month=datetime.date(2026, 7, 23),
@@ -868,8 +939,71 @@ class PetroleumLedgerReworkTests(TestCase):
         )
         row = rows[0]
         self.assertEqual(row["shortage"], Decimal("5"))
-        # 200 (mech sales) + 5 (test) + 5 (کسری) + 900 (موجودی واقعی) = 1110
-        self.assertEqual(row["daily_dispatched"], Decimal("1110"))
+        # 200 (mech sales) + 5 (test) + 5 (کسری) = 210 -- موجودی واقعی
+        # (900) must NOT appear in this sum.
+        self.assertEqual(row["daily_dispatched"], Decimal("210"))
+
+    def test_daily_dispatched_is_independent_of_actual_inventory_value(self):
+        """Verification case 1, proven directly at the formula level:
+        جمع روزانه خارج شده has NO موجودی واقعی term at all -- it is
+        exactly جمع فروش مکانیکی + مجموع آزمایش + کسری (already confirmed
+        numerically in test_daily_dispatched_formula above). Given that
+        identity, two records sharing the same mechanical sales, test
+        total, and کسری are GUARANTEED to share the same جمع روزانه خارج
+        شده regardless of موجودی واقعی -- changing actual_inventory only
+        ever changes کسری itself (shortage = theoretical - actual), never
+        adds a separate term. This test demonstrates that directly: two
+        otherwise-identical days differing ONLY in actual_inventory shift
+        جمع روزانه خارج شده by EXACTLY the resulting change in کسری, never
+        by the change in موجودی واقعی itself -- i.e. actual_inventory's
+        effect is fully mediated through کسری, with no leftover direct
+        contribution."""
+        wd1 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        wd2 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 24))
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("1000"), effective_month=datetime.date(2026, 7, 23),
+        )
+        for wd, actual in [(wd1, Decimal("900")), (wd2, Decimal("850"))]:
+            PurchaseInvoice.objects.create(
+                working_day=wd, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"),
+            )
+            self._sell(wd, Decimal("0") if wd == wd1 else Decimal("205"), Decimal("205") if wd == wd1 else Decimal("410"), test=Decimal("5"))
+            TankInventory.objects.create(tank=self.tank, working_day=wd, actual_inventory=actual)
+
+        from apps.reports import services as report_services
+        rows = report_services.petroleum_inventory_operations_ledger(
+            self.tank, datetime.date(2026, 7, 23), datetime.date(2026, 7, 24)
+        )
+        row1, row2 = rows
+        actual_delta = row1["actual_inventory"] - row2["actual_inventory"]
+        shortage_delta = row2["shortage"] - row1["shortage"]
+        dispatched_delta = row2["daily_dispatched"] - row1["daily_dispatched"]
+        self.assertNotEqual(actual_delta, 0)
+        # The change in دispatched tracks the change in کسری exactly --
+        # NOT the (unrelated, much larger/different) change in actual.
+        self.assertEqual(dispatched_delta, shortage_delta)
+        self.assertNotEqual(dispatched_delta, actual_delta)
+
+    def test_actual_inventory_still_its_own_unchanged_column(self):
+        """موجودی واقعی must remain stored/displayed exactly as entered,
+        just no longer summed into جمع روزانه خارج شده."""
+        wd = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))
+        OpeningInventory.objects.create(
+            tank=self.tank, opening_quantity=Decimal("1000"), effective_month=datetime.date(2026, 7, 23),
+        )
+        PurchaseInvoice.objects.create(
+            working_day=wd, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"),
+        )
+        self._sell(wd, Decimal("0"), Decimal("205"), test=Decimal("5"))
+        TankInventory.objects.create(tank=self.tank, working_day=wd, actual_inventory=Decimal("900"))
+
+        from apps.reports import services as report_services
+        row = report_services.petroleum_inventory_operations_ledger(
+            self.tank, datetime.date(2026, 7, 23), datetime.date(2026, 7, 23)
+        )[0]
+        self.assertEqual(row["actual_inventory"], Decimal("900"))
+        inv = TankInventory.objects.get(tank=self.tank, working_day=wd)
+        self.assertEqual(inv.actual_inventory, Decimal("900"))
 
     def test_cumulative_received_accumulates_across_days(self):
         wd1 = DailyWorkingDay.objects.create(date=datetime.date(2026, 7, 23))

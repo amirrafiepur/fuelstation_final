@@ -1,12 +1,19 @@
 """
 Seal views: add/edit/delete/list. NozzleSeal has no chronology dependency
-(it's event-based, not a daily working-day record), so these views don't
-touch workday/services.py at all -- unlike sales/purchases/inventory.
+(it's event-based, not a daily working-day record) for add/edit/delete --
+those don't touch workday/services.py at all, unlike sales/purchases/
+inventory. seal_list's date-range filtering (below) uses
+workday_services.get_global_date() only to seed its DEFAULT range; it
+does not gate entry the way sales/purchases do.
 """
+
+import datetime
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+
+from apps.workday import services as workday_services
 
 from .forms import NozzleSealForm
 from .models import NozzleSeal
@@ -14,8 +21,32 @@ from .models import NozzleSeal
 
 @login_required
 def seal_list(request):
-    seals = NozzleSeal.objects.select_related("nozzle__tank__product").order_by("-date")
-    return render(request, "seals/seal_list.html", {"seals": seals})
+    """
+    پلمپ‌ها date-range list, mirroring دفتر موجودی و عملیات's UI/workflow
+    (date-range inputs that auto-navigate on change, no submit button,
+    plus a print button) -- see templates/seals/seal_list.html and
+    templates/reports/petroleum_inventory_ledger.html. Default range is
+    the operator's current global Date Control date (both ends), per the
+    explicit requirement -- NOT the ledger's own "current Jalali month"
+    default.
+    """
+    default_date = workday_services.get_global_date(request)
+    start_date = default_date
+    end_date = default_date
+
+    if request.GET.get("start_date"):
+        start_date = datetime.date.fromisoformat(request.GET.get("start_date"))
+    if request.GET.get("end_date"):
+        end_date = datetime.date.fromisoformat(request.GET.get("end_date"))
+
+    seals = NozzleSeal.objects.select_related("nozzle__tank__product").filter(
+        date__gte=start_date, date__lte=end_date
+    ).order_by("-date")
+
+    return render(
+        request, "seals/seal_list.html",
+        {"seals": seals, "start_date": start_date, "end_date": end_date},
+    )
 
 
 @login_required

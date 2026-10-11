@@ -225,7 +225,7 @@ def petroleum_inventory_operations_ledger(tank: Tank, start_date, end_date):
 
     "خارج شده" (dispatched) -- exactly one row per day:
 
-        جمع روزانه‌ی خارج شده = جمع فروش مکانیکی + جمع آزمایش + کسری + موجودی واقعی
+        جمع روزانه‌ی خارج شده = جمع فروش مکانیکی + جمع آزمایش + کسری
         جمع کل خارج شده (day N) = جمع کل خارج شده (day N-1) + جمع روزانه‌ی خارج شده (day N)
 
     سرک/کسری reuse inventory_services.compute_tank_inventory()'s existing
@@ -235,14 +235,34 @@ def petroleum_inventory_operations_ledger(tank: Tank, start_date, end_date):
     relabeled per the UI-level renames already established elsewhere in
     this project (see apps/inventory's "موجودی غیرواقعی"/"سرک" renames).
 
+    موجودی واقعی (actual_inventory) is still its own column on this row,
+    stored and displayed exactly as the operator entered it, but it does
+    NOT contribute to جمع روزانه‌ی خارج شده. An earlier version of this
+    formula mistakenly added it in every day; that was wrong (موجودی
+    واقعی is an absolute tank balance, not a daily outflow quantity, so
+    summing it in daily double-counts the same balance over and over)
+    and has been corrected to the formula above. This value is never
+    persisted anywhere -- every call site (reports/views.py,
+    printing/services.py, and this module's own
+    petroleum_inventory_monthly() below, which reuses this cumulative
+    total verbatim for "گزارش ماهانه مخازن") reads it fresh from this
+    function on every request. So correcting the formula here is itself
+    the complete historical correction: every past day is recomputed
+    live from its original stored NozzleSale/PurchaseInvoice/
+    TankInventory rows, with no stale stored value anywhere left to
+    migrate. (apps.statement's "صورت وضعیت ماهانه" and apps.comparison
+    never depended on this function's dispatched total at all -- see
+    apps/statement/services.py's own, independent dispatched_total
+    formula, which only ever used موجودی واقعی once, as the period's
+    ending balance, never summed daily -- so that section was never
+    affected by this bug and needs no change here.)
+
     Both cumulative totals follow the same carry-forward rule: every day
     after the first row of the selected range, جمع کل = روز قبل's جمع کل
-    + امروز's جمع روزانه. موجودی واقعی (an absolute tank balance, not a
-    delta) is added into جمع روزانه‌ی خارج شده every day by design, so
-    جمع کل خارج شده does NOT reconcile against جمع کل رسیده (a running
-    sum of small daily deltas) -- the two cumulative totals are
-    independent running sums, not two views of the same underlying
-    quantity.
+    + امروز's جمع روزانه. جمع کل خارج شده does NOT reconcile against جمع
+    کل رسیده (a running sum of small daily deltas) -- the two cumulative
+    totals are independent running sums, not two views of the same
+    underlying quantity.
 
     For جمع کل رسیده specifically, the first row of the selected range is
     NOT always seeded from 0: if that row is also this tank's actual
@@ -292,7 +312,14 @@ def petroleum_inventory_operations_ledger(tank: Tank, start_date, end_date):
                 tank=tank, working_day=wd
             ).values_list("actual_inventory", flat=True).first()
             daily_received = daily_purchase + test_return + overage
-            daily_dispatched = daily_sales + test_return + shortage + actual_inventory
+            # جمع روزانه خارج شده = جمع فروش مکانیکی + مجموع آزمایش + کسری
+            # -- موجودی واقعی (actual_inventory, still stored/displayed as
+            # its own column below) does NOT contribute to this sum. It
+            # previously did by mistake; see this function's own
+            # docstring for the historical-correction note -- fixing this
+            # formula is itself the complete correction, because this
+            # value has never been persisted anywhere (see that note).
+            daily_dispatched = daily_sales + test_return + shortage
 
             if cumulative_received is None:
                 is_tanks_first_working_day = not TankInventory.objects.filter(

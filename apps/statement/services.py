@@ -80,8 +80,17 @@ def build_statement_rows(year: int, month: int):
             tank=tank, working_day__date__gte=first_day, working_day__date__lte=last_day,
         ).count()
 
-        # پورسانت = (مقدار رسیده × 10000) ÷ 45 -- exact formula, no substitute.
-        commission = (total_purchase * Decimal("10000") / Decimal("45")).quantize(TWO_PLACES)
+        # پورسانت = (کسری × 10000) ÷ مقدار رسیده -- exact formula, no
+        # substitute. مقدار رسیده here is the SAME upper-table value used
+        # elsewhere in this function (total_purchase), for this tank's
+        # selected month; کسری is the same total_shortage used elsewhere
+        # too -- no separate computation. Guarded against a month with no
+        # purchases (مقدار رسیده = 0), where the ratio is undefined; 0 is
+        # the safe result rather than a crash.
+        if total_purchase:
+            commission = (total_shortage * Decimal("10000") / total_purchase).quantize(TWO_PLACES)
+        else:
+            commission = Decimal("0.00")
 
         # کسری مجاز = (مقدار رسیده × 45) ÷ 10000
         allowed_shortage = (total_purchase * Decimal("45") / Decimal("10000")).quantize(TWO_PLACES)

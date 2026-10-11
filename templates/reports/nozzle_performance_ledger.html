@@ -14,7 +14,7 @@
   <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
     <div>
       <label class="form-label">انتخاب نازل</label>
-      <select class="form-input" onchange="window.location = '?nozzle_id=' + this.value + '&start_date={{ start_date|date:"Y-m-d" }}&end_date={{ end_date|date:"Y-m-d" }}'">
+      <select id="nozzle-select" class="form-input" onchange="window.location = '?nozzle_id=' + this.value + '&start_date={{ start_date|date:"Y-m-d" }}&end_date={{ end_date|date:"Y-m-d" }}'">
         <option value="">— انتخاب کنید —</option>
         {% for nozzle in nozzles %}
           <option value="{{ nozzle.id }}" {% if selected_nozzle.id == nozzle.id %}selected{% endif %}>
@@ -82,5 +82,41 @@
     {% endif %}
   {% endif %}
 </div>
-<script>document.addEventListener('DOMContentLoaded', function () { JalaliCalendar.bindNavInputs(); });</script>
+<script>
+document.addEventListener('DOMContentLoaded', function () { JalaliCalendar.bindNavInputs(); });
+
+// Keyboard navigation (no mouse needed): ArrowUp -> next nozzle,
+// ArrowDown -> previous nozzle, clamped to the first/last nozzle in the
+// list (1..26) -- never wraps or goes out of range. Keeps the current
+// date range (the select's own onchange already carries start_date/
+// end_date through, unchanged). Ignored while the user is typing/
+// focused on any input, select, textarea, or editable element, so it
+// never interferes with normal keyboard use elsewhere on the page.
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+
+  var tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) {
+    return;
+  }
+
+  var select = document.getElementById('nozzle-select');
+  if (!select) return;
+  var options = Array.prototype.slice.call(select.options).filter(function (o) { return o.value; });
+  if (options.length === 0) return;
+
+  var currentIndex = options.findIndex(function (o) { return o.selected; });
+  var nextIndex;
+  if (e.key === 'ArrowUp') {
+    nextIndex = currentIndex < 0 ? 0 : Math.min(currentIndex + 1, options.length - 1);
+  } else {
+    nextIndex = currentIndex < 0 ? 0 : Math.max(currentIndex - 1, 0);
+  }
+  if (nextIndex === currentIndex) return;
+
+  e.preventDefault();
+  select.value = options[nextIndex].value;
+  select.dispatchEvent(new Event('change'));
+});
+</script>
 {% endblock %}

@@ -110,20 +110,74 @@ class StatementServiceTests(TestCase):
         self.assertEqual(row["dispatched_total"], expected)
 
     def test_commission_formula(self):
+        """
+        پورسانت = (کسری × 10000) ÷ مقدار رسیده -- using this exact
+        fixture (کسری=5, مقدار رسیده=10), per the task's own stated
+        verification: expected پورسانت = 5000.
+        """
         wd1 = self._wd()
         OpeningInventory.objects.create(
             tank=self.regular_tank, opening_quantity=Decimal("0"), effective_month=self.day1,
         )
         PurchaseInvoice.objects.create(
-            working_day=wd1, tank=self.regular_tank, quantity=Decimal("450"), purchase_rate=Decimal("1200"),
+            working_day=wd1, tank=self.regular_tank, quantity=Decimal("10"), purchase_rate=Decimal("1200"),
         )
-        TankInventory.objects.create(tank=self.regular_tank, working_day=wd1, actual_inventory=Decimal("450"))
+        # Theoretical = 0 (opening) + 10 (purchase) + 0 (test) + 0 (overage) = 10.
+        # Actual = 5 -> کسری (shortage) = 10 - 5 = 5.
+        TankInventory.objects.create(tank=self.regular_tank, working_day=wd1, actual_inventory=Decimal("5"))
 
         rows = build_statement_rows(1405, 5)
         row = next(r for r in rows if r["tank"] == self.regular_tank)
-        # پورسانت = (مقدار رسیده × 10000) ÷ 45
-        expected = (Decimal("450") * Decimal("10000") / Decimal("45")).quantize(Decimal("0.01"))
-        self.assertEqual(row["commission"], expected)
+        self.assertEqual(row["total_shortage"], Decimal("5"))
+        self.assertEqual(row["total_purchase"], Decimal("10"))
+        self.assertEqual(row["commission"], Decimal("5000.00"))
+
+    def test_commission_is_zero_when_no_purchases_that_month(self):
+        """مقدار رسیده = 0 must not raise (division guard), and the
+        correct, safe result is 0 رather than a crash."""
+        wd1 = self._wd()
+        OpeningInventory.objects.create(
+            tank=self.regular_tank, opening_quantity=Decimal("100"), effective_month=self.day1,
+        )
+        TankInventory.objects.create(tank=self.regular_tank, working_day=wd1, actual_inventory=Decimal("90"))
+
+        rows = build_statement_rows(1405, 5)
+        row = next(r for r in rows if r["tank"] == self.regular_tank)
+        self.assertEqual(row["total_purchase"], Decimal("0"))
+        self.assertEqual(row["commission"], Decimal("0.00"))
+
+    def test_commission_uses_the_selected_months_own_values(self):
+        """Changing the selected month must use that month's own کسری/
+        مقدار رسیده, not another month's."""
+        wd1 = self._wd()
+        OpeningInventory.objects.create(
+            tank=self.regular_tank, opening_quantity=Decimal("0"), effective_month=self.day1,
+        )
+        PurchaseInvoice.objects.create(
+            working_day=wd1, tank=self.regular_tank, quantity=Decimal("10"), purchase_rate=Decimal("1200"),
+        )
+        TankInventory.objects.create(tank=self.regular_tank, working_day=wd1, actual_inventory=Decimal("5"))
+
+        day2 = datetime.date(2026, 8, 23)  # a later Jalali month
+        wd2 = DailyWorkingDay.objects.create(date=day2)
+        PurchaseInvoice.objects.create(
+            working_day=wd2, tank=self.regular_tank, quantity=Decimal("20"), purchase_rate=Decimal("1200"),
+        )
+        TankInventory.objects.create(tank=self.regular_tank, working_day=wd2, actual_inventory=Decimal("16"))
+
+        month5_rows = build_statement_rows(1405, 5)
+        month5_row = next(r for r in month5_rows if r["tank"] == self.regular_tank)
+        self.assertEqual(month5_row["commission"], Decimal("5000.00"))  # (5*10000)/10
+
+        month6_rows = build_statement_rows(1405, 6)
+        month6_row = next(r for r in month6_rows if r["tank"] == self.regular_tank)
+        # Not the same as month 5's -- it must be month 6's own
+        # کسری/مقدار رسیده, whatever those compute to.
+        self.assertNotEqual(month6_row["commission"], month5_row["commission"])
+        self.assertEqual(
+            month6_row["commission"],
+            (month6_row["total_shortage"] * Decimal("10000") / month6_row["total_purchase"]).quantize(Decimal("0.01")),
+        )
 
     def test_unauthorized_shortage_formula(self):
         wd1 = self._wd()

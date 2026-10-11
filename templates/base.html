@@ -137,6 +137,31 @@
     <a class="app-nav__link" href="{% url 'statement:statement' %}">صورت وضعیت ماهانه</a>
     <a class="app-nav__link" href="{% url 'comparison:comparison' %}">مقایسه سیستم مکانیکی و دیجیتال</a>
   </nav>
+
+  <script>
+    // Escape -> return to the previous view/state, site-wide. Every
+    // filter, selection, and section in this app is already encoded in
+    // the URL itself (nozzle_id, month, start_date/end_date, the page
+    // path...), and every change to one of those navigates to a new URL
+    // (see e.g. نازل select's onchange, گزارش ماهانه مخازن's month
+    // select) -- so the browser's OWN history already holds exactly the
+    // sequence of previous states the task describes. Reusing it here
+    // (rather than inventing a separate server-side "previous state"
+    // mechanism) is exactly "the existing navigation architecture."
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+
+      var tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) {
+        return;  // don't interfere with typing or an open control
+      }
+
+      if (window.history.length > 1) {
+        e.preventDefault();
+        window.history.back();
+      }
+    });
+  </script>
   {% endif %}
 
   <main class="{% if user.is_authenticated %}app-main{% endif %}">

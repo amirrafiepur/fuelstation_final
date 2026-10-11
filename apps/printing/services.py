@@ -243,6 +243,27 @@ def build_sales_invoice_context(working_day) -> dict:
     }
 
 
+def build_seals_context(start_date, end_date) -> dict:
+    """
+    پلمپ‌ها date-range print: reuses the exact same NozzleSeal queryset
+    shape as the on-screen list (apps/seals/views.py:seal_list) -- same
+    filter, same ordering, no recalculation (there is nothing to
+    calculate; this section has no derived values).
+    """
+    from apps.seals.models import NozzleSeal
+
+    seals = NozzleSeal.objects.select_related("nozzle__tank__product").filter(
+        date__gte=start_date, date__lte=end_date
+    ).order_by("-date")
+
+    return {
+        "station": get_station_metadata(),
+        "start_date": start_date,
+        "end_date": end_date,
+        "seals": seals,
+    }
+
+
 def build_purchases_ledger_context(start_date, end_date) -> dict:
     """
     Reuses purchases.services.get_purchase_invoices_in_range() verbatim,

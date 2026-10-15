@@ -1,5 +1,6 @@
 {% extends "printing/base_print.html" %}
 {% load display_tags %}
+{% block body_class %}landscape{% endblock %}
 {% block title %}گزارش ماهانه مخازن{% endblock %}
 {% block report_title %}گزارش ماهانه مخازن{% endblock %}
 {% block report_period %}سال {{ year }} — ماه {{ month }}{% endblock %}
@@ -25,15 +26,15 @@
     {% for row in rows %}
     <tr>
       <td>{{ row.tank.product.name|persian_product }}</td>
-      <td class="numeric">{{ row.beginning_inventory }}</td>
-      <td class="numeric">{{ row.total_overage }}</td>
-      <td class="numeric">{{ row.total_test_return }}</td>
-      <td class="numeric">{{ row.total_received|default:"—" }}</td>
-      <td class="numeric">{{ row.total_sales }}</td>
-      <td class="numeric">{{ row.total_test_return }}</td>
-      <td class="numeric">{{ row.total_shortage }}</td>
-      <td class="numeric">{{ row.total_dispatched|default:"—" }}</td>
-      <td class="numeric">{{ row.ending_inventory|default:"—" }}</td>
+      <td class="numeric">{{ row.beginning_inventory|num }}</td>
+      <td class="numeric">{{ row.total_overage|num }}</td>
+      <td class="numeric">{{ row.total_test_return|num }}</td>
+      <td class="numeric">{{ row.total_received|default:"—"|num }}</td>
+      <td class="numeric">{{ row.total_sales|num }}</td>
+      <td class="numeric">{{ row.total_test_return|num }}</td>
+      <td class="numeric">{{ row.total_shortage|num }}</td>
+      <td class="numeric">{{ row.total_dispatched|default:"—"|num }}</td>
+      <td class="numeric">{{ row.ending_inventory|default:"—"|num }}</td>
     </tr>
     {% endfor %}
   </tbody>

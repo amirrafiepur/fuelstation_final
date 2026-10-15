@@ -61,9 +61,9 @@
           <td style="padding: 0.4rem;" class="numeric">{{ inv.working_day.date|jalali }}</td>
           <td style="padding: 0.4rem;">{{ inv.program_number|default:"—" }}</td>
           <td style="padding: 0.4rem;">{{ inv.tanker_number|default:"—" }}</td>
-          <td style="padding: 0.4rem;" class="numeric">{{ inv.quantity }}</td>
-          <td style="padding: 0.4rem;" class="numeric">{{ inv.purchase_rate }}</td>
-          <td style="padding: 0.4rem;" class="numeric">{{ inv.total_amount }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ inv.quantity|num }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ inv.purchase_rate|num }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ inv.total_amount|num }}</td>
           <td style="padding: 0.4rem; white-space: nowrap;">
             <a href="{% url 'purchases:purchase_edit' inv.working_day.date|date:'Y-m-d' inv.pk %}">ویرایش</a>
             &nbsp;|&nbsp;

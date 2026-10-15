@@ -1,4 +1,5 @@
 {% extends "printing/base_print.html" %}
+{% load display_tags %}
 {% load jalali_tags %}
 {% block title %}واریزی‌ها — {{ decade_label }}{% endblock %}
 {% block report_title %}واریزی‌ها — {{ decade_label }}{% endblock %}
@@ -22,8 +23,8 @@
     <tr>
       <td class="numeric">{{ deposit.date|jalali }}</td>
       <td>{{ deposit.document_number|default:"—" }}</td>
-      <td class="numeric">{{ deposit.deposit_amount }}</td>
-      <td class="numeric">{{ deposit.difference_amount }}</td>
+      <td class="numeric">{{ deposit.deposit_amount|num }}</td>
+      <td class="numeric">{{ deposit.difference_amount|num }}</td>
     </tr>
     {% endfor %}
   </tbody>

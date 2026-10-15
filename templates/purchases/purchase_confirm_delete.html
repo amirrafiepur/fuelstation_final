@@ -9,7 +9,7 @@
   <div class="alert alert--info">
     آیا از حذف فاکتور خرید {{ invoice.tank.product.name|persian_product }}
     ({{ invoice.working_day.date|jalali }} — شماره ی بارنامه {{ invoice.program_number|default:"—" }} —
-    شماره ی نفتکش {{ invoice.tanker_number|default:"—" }} — مقدار {{ invoice.quantity }}) اطمینان دارید؟
+    شماره ی نفتکش {{ invoice.tanker_number|default:"—" }} — مقدار {{ invoice.quantity|num }}) اطمینان دارید؟
     این عملیات قابل بازگشت نیست.
   </div>
 

@@ -82,18 +82,18 @@
             {% endif %}
             <td style="padding: 0.4rem;">{{ received.program_number|default:"—" }}</td>
             <td style="padding: 0.4rem;">{{ received.tanker_number|default:"—" }}</td>
-            <td style="padding: 0.4rem;" class="numeric">{{ received.quantity|default:"—" }}</td>
-            <td style="padding: 0.4rem;" class="numeric">{{ received.test_return|default_if_none:"" }}</td>
-            <td style="padding: 0.4rem;" class="numeric">{{ received.overage|default_if_none:"" }}</td>
-            <td style="padding: 0.4rem;" class="numeric">{{ received.daily_received|default_if_none:"" }}</td>
-            <td style="padding: 0.4rem;" class="numeric">{{ received.cumulative_received|default_if_none:"" }}</td>
+            <td style="padding: 0.4rem;" class="numeric">{{ received.quantity|default:"—"|num }}</td>
+            <td style="padding: 0.4rem;" class="numeric">{{ received.test_return|default_if_none:""|num }}</td>
+            <td style="padding: 0.4rem;" class="numeric">{{ received.overage|default_if_none:""|num }}</td>
+            <td style="padding: 0.4rem;" class="numeric">{{ received.daily_received|default_if_none:""|num }}</td>
+            <td style="padding: 0.4rem;" class="numeric">{{ received.cumulative_received|default_if_none:""|num }}</td>
             {% if forloop.first %}
-            <td style="padding: 0.4rem; border-right: 3px solid var(--color-primary);" class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.daily_sales }}</td>
-            <td style="padding: 0.4rem;" class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.test_return }}</td>
-            <td style="padding: 0.4rem;" class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.shortage|default:"—" }}</td>
-            <td style="padding: 0.4rem;" class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.daily_dispatched|default:"—" }}</td>
-            <td style="padding: 0.4rem;" class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.cumulative_dispatched|default:"—" }}</td>
-            <td style="padding: 0.4rem;" class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.actual_inventory|default:"—" }}</td>
+            <td style="padding: 0.4rem; border-right: 3px solid var(--color-primary);" class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.daily_sales|num }}</td>
+            <td style="padding: 0.4rem;" class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.test_return|num }}</td>
+            <td style="padding: 0.4rem;" class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.shortage|default:"—"|num }}</td>
+            <td style="padding: 0.4rem;" class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.daily_dispatched|default:"—"|num }}</td>
+            <td style="padding: 0.4rem;" class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.cumulative_dispatched|default:"—"|num }}</td>
+            <td style="padding: 0.4rem;" class="numeric" rowspan="{{ row.received_rows|length }}">{{ row.actual_inventory|default:"—"|num }}</td>
             {% endif %}
           </tr>
           {% endfor %}

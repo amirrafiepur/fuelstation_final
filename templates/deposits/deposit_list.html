@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load display_tags %}
 {% block title %}واریزی‌ها{% endblock %}
 {% block content %}
 
@@ -37,7 +38,7 @@
 
   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
     <span style="font-weight:600;">جمع مبلغ واریزی ماه</span>
-    <span class="numeric" style="font-weight:600;">{{ monthly_total }}</span>
+    <span class="numeric" style="font-weight:600;">{{ monthly_total|num }}</span>
   </div>
 
   <table style="width:100%; border-collapse: collapse; font-size: 0.9rem;">
@@ -53,7 +54,7 @@
       <tr style="border-bottom: 1px solid var(--color-border); cursor: pointer;"
           onclick="window.location='{% url 'deposits:deposit_decade_detail' year month row.decade %}'">
         <td style="padding: 0.6rem;">{{ row.label }}</td>
-        <td style="padding: 0.6rem;" class="numeric">{{ row.total }}</td>
+        <td style="padding: 0.6rem;" class="numeric">{{ row.total|num }}</td>
         <td style="padding: 0.6rem;">
           <a href="{% url 'printing:deposit_decade_print' %}?year={{ year }}&month={{ month }}&decade={{ row.decade }}"
              target="_blank" onclick="event.stopPropagation()"

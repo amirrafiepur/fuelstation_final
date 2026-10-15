@@ -1,5 +1,6 @@
 {% extends "printing/base_print.html" %}
 {% load display_tags %}
+{% block body_class %}landscape{% endblock %}
 {% block title %}مقایسه سیستم مکانیکی و دیجیتال{% endblock %}
 {% block report_title %}مقایسه سیستم مکانیکی و دیجیتال{% endblock %}
 {% block report_period %}سال {{ year }} — ماه {{ month }}{% endblock %}
@@ -31,16 +32,16 @@
     {% for row in mechanical_rows %}
     <tr>
       <td>{{ row.product.name|persian_product }}</td>
-      <td class="numeric">{{ row.beginning_inventory }}</td>
-      <td class="numeric">{{ row.total_purchase }}</td>
-      <td class="numeric">{{ row.total_test_return }}</td>
-      <td class="numeric">{{ row.total_overage }}</td>
-      <td class="numeric">{{ row.received_total }}</td>
-      <td class="numeric" style="border-right: 2px solid #000;">{{ row.total_sales }}</td>
-      <td class="numeric">{{ row.total_test_return }}</td>
-      <td class="numeric">{{ row.total_shortage }}</td>
-      <td class="numeric">{{ row.ending_inventory|default:"—" }}</td>
-      <td class="numeric">{{ row.dispatched_total }}</td>
+      <td class="numeric">{{ row.beginning_inventory|num }}</td>
+      <td class="numeric">{{ row.total_purchase|num }}</td>
+      <td class="numeric">{{ row.total_test_return|num }}</td>
+      <td class="numeric">{{ row.total_overage|num }}</td>
+      <td class="numeric">{{ row.received_total|num }}</td>
+      <td class="numeric" style="border-right: 2px solid #000;">{{ row.total_sales|num }}</td>
+      <td class="numeric">{{ row.total_test_return|num }}</td>
+      <td class="numeric">{{ row.total_shortage|num }}</td>
+      <td class="numeric">{{ row.ending_inventory|default:"—"|num }}</td>
+      <td class="numeric">{{ row.dispatched_total|num }}</td>
     </tr>
     {% endfor %}
   </tbody>
@@ -71,16 +72,16 @@
     {% for row in digital_rows %}
     <tr>
       <td>{{ row.product.name|persian_product }}</td>
-      <td class="numeric">{{ row.beginning_inventory }}</td>
-      <td class="numeric">{{ row.received_quantity }}</td>
-      <td class="numeric">{{ row.test_return }}</td>
-      <td class="numeric">{{ row.overage }}</td>
-      <td class="numeric">{{ row.received_total }}</td>
-      <td class="numeric" style="border-right: 2px solid #000;">{{ row.sales_quantity }}</td>
-      <td class="numeric">{{ row.test_return }}</td>
-      <td class="numeric">{{ row.shortage }}</td>
-      <td class="numeric">{{ row.ending_inventory }}</td>
-      <td class="numeric">{{ row.dispatched_total }}</td>
+      <td class="numeric">{{ row.beginning_inventory|num }}</td>
+      <td class="numeric">{{ row.received_quantity|num }}</td>
+      <td class="numeric">{{ row.test_return|num }}</td>
+      <td class="numeric">{{ row.overage|num }}</td>
+      <td class="numeric">{{ row.received_total|num }}</td>
+      <td class="numeric" style="border-right: 2px solid #000;">{{ row.sales_quantity|num }}</td>
+      <td class="numeric">{{ row.test_return|num }}</td>
+      <td class="numeric">{{ row.shortage|num }}</td>
+      <td class="numeric">{{ row.ending_inventory|num }}</td>
+      <td class="numeric">{{ row.dispatched_total|num }}</td>
     </tr>
     {% endfor %}
   </tbody>

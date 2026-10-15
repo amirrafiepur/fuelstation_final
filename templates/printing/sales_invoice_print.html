@@ -1,6 +1,7 @@
 {% extends "printing/base_print.html" %}
 {% load jalali_tags %}
 {% load display_tags %}
+{% block body_class %}landscape{% endblock %}
 {% block title %}فاکتور فروش روزانه — {{ working_day.date|jalali }}{% endblock %}
 {% block report_title %}فاکتور فروش روزانه{% endblock %}
 {% block report_period %}{{ working_day.date|jalali }}{% endblock %}
@@ -18,10 +19,10 @@
   </thead>
   <tbody>
     <tr>
-      <td class="numeric">{{ totals.nozzle_count|trim_zeros }}</td>
-      <td class="numeric">{{ totals.total_operation|trim_zeros }}</td>
-      <td class="numeric">{{ totals.total_test|trim_zeros }}</td>
-      <td class="numeric">{{ totals.total_sales|trim_zeros }}</td>
+      <td class="numeric">{{ totals.nozzle_count|num }}</td>
+      <td class="numeric">{{ totals.total_operation|num }}</td>
+      <td class="numeric">{{ totals.total_test|num }}</td>
+      <td class="numeric">{{ totals.total_sales|num }}</td>
     </tr>
   </tbody>
 </table>
@@ -46,13 +47,13 @@
     <tr>
       <td class="numeric">{{ sale.nozzle.number }}</td>
       <td>{{ sale.nozzle.tank.product.name|persian_product }}</td>
-      <td class="numeric">{{ sale.previous_meter|trim_zeros }}</td>
-      <td class="numeric">{{ sale.new_meter|trim_zeros }}</td>
-      <td class="numeric">{{ sale.operation|trim_zeros }}</td>
-      <td class="numeric">{{ sale.test|trim_zeros }}</td>
-      <td class="numeric">{{ sale.mechanical_sales|trim_zeros }}</td>
-      <td class="numeric">{{ sale.sales_rate|trim_zeros }}</td>
-      <td class="numeric">{{ sale.total_amount|trim_zeros }}</td>
+      <td class="numeric">{{ sale.previous_meter|num }}</td>
+      <td class="numeric">{{ sale.new_meter|num }}</td>
+      <td class="numeric">{{ sale.operation|num }}</td>
+      <td class="numeric">{{ sale.test|num }}</td>
+      <td class="numeric">{{ sale.mechanical_sales|num }}</td>
+      <td class="numeric">{{ sale.sales_rate|num }}</td>
+      <td class="numeric">{{ sale.total_amount|num }}</td>
     </tr>
     {% endfor %}
   </tbody>

@@ -59,15 +59,15 @@
       {% for row in rows %}
       <tr style="border-bottom: 1px solid var(--color-border);">
         <td style="padding: 0.4rem;">{{ row.tank.product.name|persian_product }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.beginning_inventory }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_overage }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test_return }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_received|default:"—" }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_sales }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test_return }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_shortage }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_dispatched|default:"—" }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.ending_inventory|default:"—" }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.beginning_inventory|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_overage|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test_return|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_received|default:"—"|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_sales|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test_return|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_shortage|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_dispatched|default:"—"|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.ending_inventory|default:"—"|num }}</td>
       </tr>
       {% endfor %}
     </tbody>

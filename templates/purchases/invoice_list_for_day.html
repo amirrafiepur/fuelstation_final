@@ -15,7 +15,7 @@
       <h3 style="margin:0; font-size:1rem;">{{ row.tank.product.name|persian_product }}</h3>
       <div style="display:flex; align-items:center; gap:1rem;">
         <span style="font-size:0.85rem; color:var(--color-ink-muted);">
-          مجموع خرید روز: <strong class="numeric">{{ row.daily_total }}</strong> لیتر
+          مجموع خرید روز: <strong class="numeric">{{ row.daily_total|num }}</strong> لیتر
         </span>
         <a href="{% url 'purchases:purchase_entry' working_day.date|date:'Y-m-d' row.tank.id %}"
            class="btn" style="display:inline-block; width:auto; padding:0.4rem 0.9rem; font-size:0.85rem;">
@@ -43,10 +43,10 @@
         <tr style="border-bottom: 1px solid var(--color-border);">
           <td style="padding: 0.4rem;">{{ inv.document_number|default:"—" }}</td>
           <td style="padding: 0.4rem;">{{ inv.tanker_number|default:"—" }}</td>
-          <td style="padding: 0.4rem;" class="numeric">{{ inv.tanker_capacity|default:"—" }}</td>
-          <td style="padding: 0.4rem;" class="numeric">{{ inv.quantity }}</td>
-          <td style="padding: 0.4rem;" class="numeric">{{ inv.purchase_rate }}</td>
-          <td style="padding: 0.4rem;" class="numeric">{{ inv.total_amount }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ inv.tanker_capacity|default:"—"|num }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ inv.quantity|num }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ inv.purchase_rate|num }}</td>
+          <td style="padding: 0.4rem;" class="numeric">{{ inv.total_amount|num }}</td>
           <td style="padding: 0.4rem;" class="numeric">{{ inv.unloading_time|time:"H:i"|default:"—" }}</td>
           <td style="padding: 0.4rem;">
             <a href="{% url 'purchases:purchase_edit' working_day.date|date:'Y-m-d' inv.pk %}">ویرایش</a>

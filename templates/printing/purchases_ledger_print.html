@@ -28,9 +28,9 @@
         <td class="numeric">{{ inv.working_day.date|jalali }}</td>
         <td>{{ inv.program_number|default:"—" }}</td>
         <td>{{ inv.tanker_number|default:"—" }}</td>
-        <td class="numeric">{{ inv.quantity }}</td>
-        <td class="numeric">{{ inv.purchase_rate }}</td>
-        <td class="numeric">{{ inv.total_amount }}</td>
+        <td class="numeric">{{ inv.quantity|num }}</td>
+        <td class="numeric">{{ inv.purchase_rate|num }}</td>
+        <td class="numeric">{{ inv.total_amount|num }}</td>
       </tr>
       {% endfor %}
     </tbody>

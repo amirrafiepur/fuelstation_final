@@ -25,6 +25,16 @@ from apps.reports import services as report_services
 User = get_user_model()
 
 
+def _shown(value) -> str:
+    """How a service-layer number appears on a printed report: trailing
+    zeros trimmed and thousands separators added (Task 1), so a printed
+    1000.00 is "1,000". The printed value must still equal the service
+    value exactly -- only its display form changed."""
+    from apps.core.display import format_number
+
+    return "" if value is None else str(format_number(value))
+
+
 def _pdf_page_count(pdf_bytes: bytes) -> int:
     """Lightweight page count via pypdf, used only to assert pagination
     behavior -- not a rendering/appearance check."""
@@ -178,13 +188,13 @@ class PrintingHttpTests(TestCase):
         # (operation/عملکرد is intentionally not asserted here: it is no
         # longer a displayed column -- see nozzle_ledger_print.html --
         # since it is numerically identical to daily_total/جمع روزانه.)
-        self.assertIn(str(row["previous_meter"]), text)
-        self.assertIn(str(row["test"]), text)
-        self.assertIn(str(row["mechanical_sales"]), text)
-        self.assertIn(str(row["daily_total"]), text)
-        self.assertIn(str(row["cumulative_total"]), text)
-        self.assertIn(str(row["new_meter"]), text)
-        self.assertIn(str(row["sales_rate"]), text)
+        self.assertIn(_shown(row["previous_meter"]), text)
+        self.assertIn(_shown(row["test"]), text)
+        self.assertIn(_shown(row["mechanical_sales"]), text)
+        self.assertIn(_shown(row["daily_total"]), text)
+        self.assertIn(_shown(row["cumulative_total"]), text)
+        self.assertIn(_shown(row["new_meter"]), text)
+        self.assertIn(_shown(row["sales_rate"]), text)
 
     def test_petroleum_ledger_pdf_matches_report_service_values(self):
         resp = self.client.get(
@@ -200,18 +210,18 @@ class PrintingHttpTests(TestCase):
         # "رسیده" side: per-invoice detail (program/tanker/quantity) plus
         # the day-level values attached to the first (only) invoice row.
         received = row["received_rows"][0]
-        self.assertIn(str(received["quantity"]), text)
-        self.assertIn(str(received["test_return"]), text)
-        self.assertIn(str(received["overage"]), text)
-        self.assertIn(str(received["daily_received"]), text)
-        self.assertIn(str(received["cumulative_received"]), text)
+        self.assertIn(_shown(received["quantity"]), text)
+        self.assertIn(_shown(received["test_return"]), text)
+        self.assertIn(_shown(received["overage"]), text)
+        self.assertIn(_shown(received["daily_received"]), text)
+        self.assertIn(_shown(received["cumulative_received"]), text)
         # "خارج شده" side: exactly one set of day-level values.
-        self.assertIn(str(row["daily_sales"]), text)
-        self.assertIn(str(row["test_return"]), text)
-        self.assertIn(str(row["shortage"]), text)
-        self.assertIn(str(row["daily_dispatched"]), text)
-        self.assertIn(str(row["cumulative_dispatched"]), text)
-        self.assertIn(str(row["actual_inventory"]), text)
+        self.assertIn(_shown(row["daily_sales"]), text)
+        self.assertIn(_shown(row["test_return"]), text)
+        self.assertIn(_shown(row["shortage"]), text)
+        self.assertIn(_shown(row["daily_dispatched"]), text)
+        self.assertIn(_shown(row["cumulative_dispatched"]), text)
+        self.assertIn(_shown(row["actual_inventory"]), text)
 
     def test_petroleum_monthly_pdf_matches_report_service_values(self):
         resp = self.client.get("/print/petroleum-monthly/?year=1405&month=5")
@@ -222,14 +232,14 @@ class PrintingHttpTests(TestCase):
         # "کل خرید" is no longer a displayed column on this report (per
         # its rework), so total_purchase is deliberately not asserted
         # here -- only the 10 columns actually shown.
-        self.assertIn(str(service_report["beginning_inventory"]), text)
-        self.assertIn(str(service_report["total_overage"]), text)
-        self.assertIn(str(service_report["total_test_return"]), text)
-        self.assertIn(str(service_report["total_received"]), text)
-        self.assertIn(str(service_report["total_sales"]), text)
-        self.assertIn(str(service_report["total_shortage"]), text)
-        self.assertIn(str(service_report["total_dispatched"]), text)
-        self.assertIn(str(service_report["ending_inventory"]), text)
+        self.assertIn(_shown(service_report["beginning_inventory"]), text)
+        self.assertIn(_shown(service_report["total_overage"]), text)
+        self.assertIn(_shown(service_report["total_test_return"]), text)
+        self.assertIn(_shown(service_report["total_received"]), text)
+        self.assertIn(_shown(service_report["total_sales"]), text)
+        self.assertIn(_shown(service_report["total_shortage"]), text)
+        self.assertIn(_shown(service_report["total_dispatched"]), text)
+        self.assertIn(_shown(service_report["ending_inventory"]), text)
 
     def test_nozzle_monthly_pdf_matches_report_service_values(self):
         resp = self.client.get("/print/nozzle-monthly/?year=1405&month=5")
@@ -237,9 +247,9 @@ class PrintingHttpTests(TestCase):
 
         service_report = report_services.nozzle_performance_monthly(self.nozzle, 1405, 5)
 
-        self.assertIn(str(service_report["beginning_of_month_meter"]), text)
-        self.assertIn(str(service_report["end_of_month_meter"]), text)
-        self.assertIn(str(service_report["total_amount"]), text)
+        self.assertIn(_shown(service_report["beginning_of_month_meter"]), text)
+        self.assertIn(_shown(service_report["end_of_month_meter"]), text)
+        self.assertIn(_shown(service_report["total_amount"]), text)
 
     # --- 4. A4 page configuration is correctly applied ---
 
@@ -253,9 +263,11 @@ class PrintingHttpTests(TestCase):
         box = reader.pages[0].mediabox
         width_pt = float(box.width)
         height_pt = float(box.height)
-        # A4 portrait: ~595 x 842 points; allow a small tolerance.
-        self.assertAlmostEqual(width_pt, 595, delta=2)
-        self.assertAlmostEqual(height_pt, 842, delta=2)
+        # A4 sheet: ~595 x 842 points in either orientation (wide
+        # reports print landscape since Task 2A); small tolerance.
+        short_side, long_side = sorted((width_pt, height_pt))
+        self.assertAlmostEqual(short_side, 595, delta=2)
+        self.assertAlmostEqual(long_side, 842, delta=2)
 
     # --- 5. RTL/Persian content is handled by the rendering approach ---
 
@@ -310,7 +322,7 @@ class PrintingHttpTests(TestCase):
             self.tank, datetime.date(2026, 8, 1), datetime.date(2026, 8, 1)
         )
         self.assertEqual(service_rows_after[0]["daily_purchase"], Decimal("0"))
-        self.assertIn(str(service_rows_after[0]["daily_total_1"]), text_after)
+        self.assertIn(_shown(service_rows_after[0]["daily_total_1"]), text_after)
 
     # --- 7. Long datasets can paginate without malformed output ---
 
@@ -357,3 +369,109 @@ class PrintingHttpTests(TestCase):
         self.assertTrue(resp.content.startswith(b"%PDF"))
         text = _pdf_text(resp.content)
         self.assertIn("اطلاعاتی یافت نشد", text)
+
+
+# ---------------------------------------------------------------------------
+# Task 2A: PDF layout (black & white, large type, compact, wide -> landscape)
+# ---------------------------------------------------------------------------
+
+import re as _re
+from pathlib import Path as _Path
+
+from django.conf import settings as _settings
+
+from apps.core.test_number_display import NumberDisplayFixtureMixin
+
+
+def _print_css() -> str:
+    return (_Path(_settings.STATICFILES_DIRS[0]) / "css" / "print.css").read_text(encoding="utf-8")
+
+
+class PdfLayoutStylesheetTests(TestCase):
+    def test_stylesheet_is_strictly_black_white_and_grey(self):
+        """Printer-friendly: every colour in the print stylesheet is
+        achromatic (r == g == b); no brand reds, no tinted fills."""
+        css = _print_css()
+        css = _re.sub(r"/\*.*?\*/", "", css, flags=_re.S)
+        for hex_colour in _re.findall(r"#([0-9a-fA-F]{3,6})\b", css):
+            if len(hex_colour) == 3:
+                hex_colour = "".join(c * 2 for c in hex_colour)
+            r, g, b = hex_colour[0:2], hex_colour[2:4], hex_colour[4:6]
+            self.assertEqual(r.lower(), g.lower(), f"#{hex_colour} is not grey")
+            self.assertEqual(g.lower(), b.lower(), f"#{hex_colour} is not grey")
+        self.assertNotRegex(css, r"rgb\(|hsl\(|\bred\b|\bblue\b")
+
+    def test_type_is_larger_and_margins_smaller_than_before(self):
+        css = _print_css()
+        # Previously: table 9.5px, body 10.5px, 15mm margins.
+        self.assertRegex(css, r"table\.print-table \{[^}]*font-size: 1[4-9]px")
+        self.assertRegex(css, r"body \{[^}]*font-size: 1[4-9]px")
+        margins = [int(m) for m in _re.findall(r"margin: (\d+)mm", css)]
+        self.assertTrue(margins and max(margins) <= 10, margins)
+
+    def test_grid_lines_are_hairlines(self):
+        css = _print_css()
+        self.assertRegex(css, r"table\.print-table td \{[^}]*border: 0\.5px solid #000")
+
+
+class PdfLayoutRenderTests(NumberDisplayFixtureMixin, TestCase):
+    PORTRAIT = {"all_nozzles", "deposit_decade", "purchases_ledger"}
+
+    def setUp(self):
+        self.build_data()
+
+    def test_orientation_follows_report_width(self):
+        from pypdf import PdfReader
+        import io
+
+        for name, url in self.prints().items():
+            resp = self.client.get(url)
+            self.assertEqual(resp.status_code, 200, name)
+            box = PdfReader(io.BytesIO(resp.content)).pages[0].mediabox
+            w, h = float(box.width), float(box.height)
+            short, long_ = sorted((w, h))
+            self.assertAlmostEqual(short, 595, delta=2, msg=name)
+            self.assertAlmostEqual(long_, 842, delta=2, msg=name)
+            if name in self.PORTRAIT:
+                self.assertLess(w, h, f"{name} should stay portrait")
+            else:
+                self.assertGreater(w, h, f"{name} should be landscape")
+
+    def test_seals_pdf_still_renders_portrait(self):
+        resp = self.client.get("/print/seals/?start_date=2026-08-01&end_date=2026-08-01")
+        from pypdf import PdfReader
+        import io
+        box = PdfReader(io.BytesIO(resp.content)).pages[0].mediabox
+        self.assertLess(float(box.width), float(box.height))
+
+    def test_all_report_content_is_still_present(self):
+        """Layout only: titles, column labels and values survive."""
+        from apps.core.test_number_display import pdf_text
+
+        checks = {
+            "statement": ["صورت وضعیت ماهانه", "پورسانت", "ظرفیت نفتکش", "1,000,000"],
+            "comparison": ["مقایسه سیستم مکانیکی و دیجیتال", "فروش مکانیکی", "فروش دیجیتال"],
+            "petroleum_ledger": ["دفتر موجودی و عملیات", "رسیده", "خارج شده", "9001234", "55Ab123"],
+            "nozzle_ledger": ["گزارش کارکرد نازل", "1,234.75"],
+            "sales_invoice": ["فاکتور فروش روزانه", "1,234,572"],
+            "deposit_decade": ["واریزی", "1,500,000", "D-100200"],
+        }
+        prints = self.prints()
+        for name, needles in checks.items():
+            text = pdf_text(self.client.get(prints[name]).content)
+            for needle in needles:
+                self.assertIn(needle, text, f"{name}: {needle!r}")
+
+    def test_no_text_is_clipped_outside_the_page(self):
+        try:
+            import pymupdf
+        except ImportError:
+            self.skipTest("pymupdf not installed (dev-only check)")
+        for name, url in self.prints().items():
+            doc = pymupdf.open(stream=self.client.get(url).content, filetype="pdf")
+            for page in doc:
+                page_rect = page.rect
+                for x0, y0, x1, y1, *_ in page.get_text("blocks"):
+                    self.assertGreaterEqual(x0, page_rect.x0 - 0.5, name)
+                    self.assertLessEqual(x1, page_rect.x1 + 0.5, name)
+                    self.assertLessEqual(y1, page_rect.y1 + 0.5, name)

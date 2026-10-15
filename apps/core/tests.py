@@ -7,7 +7,7 @@ from django.test import TestCase
 from apps.license.models import License
 from apps.stations.models import Station, Product, Tank, Nozzle
 
-from .display import persian_product_name, trim_trailing_zeros
+from .display import format_number, persian_product_name, trim_trailing_zeros
 
 User = get_user_model()
 
@@ -289,3 +289,42 @@ class StationDisplayTests(TestCase):
         })
         self.assertIn("جایگاه جهانی\u200cپور ۱۴۰", html)
         self.assertIn("مشهد، خراسان رضوی", html)
+
+
+class FormatNumberTests(TestCase):
+    """Task 1 Part B: thousands separators on top of zero-trimming."""
+
+    def test_integers_are_grouped_in_threes_from_the_right(self):
+        for raw, expected in [
+            (0, "0"), (7, "7"), (999, "999"), (1000, "1,000"), (123456, "123,456"),
+            (123456789, "123,456,789"), (Decimal("1234567.00"), "1,234,567"),
+            (Decimal("100"), "100"), (Decimal("1000000"), "1,000,000"),
+        ]:
+            self.assertEqual(format_number(raw), expected, raw)
+
+    def test_decimals_keep_precision_and_only_the_integer_part_is_grouped(self):
+        for raw, expected in [
+            (Decimal("1234.50"), "1,234.5"), (Decimal("1234.25"), "1,234.25"),
+            (Decimal("1234567.125"), "1,234,567.125"), (Decimal("0.25"), "0.25"),
+            (Decimal("1.5"), "1.5"), (Decimal("999.99"), "999.99"),
+            (Decimal("1000.01"), "1,000.01"),
+        ]:
+            self.assertEqual(format_number(raw), expected, raw)
+
+    def test_negative_numbers(self):
+        self.assertEqual(format_number(Decimal("-1234567.50")), "-1,234,567.5")
+        self.assertEqual(format_number(Decimal("-12")), "-12")
+        self.assertEqual(format_number(Decimal("-0.5")), "-0.5")
+
+    def test_non_numeric_values_pass_through_unchanged(self):
+        self.assertIsNone(format_number(None))
+        self.assertEqual(format_number(""), "")
+        self.assertEqual(format_number("—"), "—")
+        self.assertEqual(format_number("abc"), "abc")
+
+    def test_string_input_and_stored_value_untouched(self):
+        self.assertEqual(format_number("1234567.00"), "1,234,567")
+        d = Decimal("1234567.00")
+        format_number(d)
+        self.assertEqual(d, Decimal("1234567.00"))
+        self.assertEqual(str(d), "1234567.00")

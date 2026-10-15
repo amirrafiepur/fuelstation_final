@@ -37,27 +37,27 @@
       <div class="inventory-breakdown">
         <div>
           <div class="form-label">موجودی واقعی</div>
-          <div class="numeric" style="font-size:1.1rem;">{{ row.inventory_row.actual_inventory }}</div>
+          <div class="numeric" style="font-size:1.1rem;">{{ row.inventory_row.actual_inventory|num }}</div>
         </div>
         {% if row.breakdown %}
         <div>
           <div class="form-label">موجودی غیرواقعی</div>
-          <div class="numeric" style="font-size:1.1rem;">{{ row.breakdown.theoretical_inventory }}</div>
+          <div class="numeric" style="font-size:1.1rem;">{{ row.breakdown.theoretical_inventory|num }}</div>
         </div>
         <div>
           <div class="form-label">موجودی کل</div>
-          <div class="numeric" style="font-size:1.1rem;">{{ row.breakdown.total_inventory }}</div>
+          <div class="numeric" style="font-size:1.1rem;">{{ row.breakdown.total_inventory|num }}</div>
         </div>
         <div>
           <div class="form-label">کسری</div>
           <div class="numeric" style="font-size:1.1rem; {% if row.breakdown.shortage > 0 %}color: var(--color-danger);{% endif %}">
-            {{ row.breakdown.shortage }}
+            {{ row.breakdown.shortage|num }}
           </div>
         </div>
         <div>
           <div class="form-label">سرک</div>
           <div class="numeric" style="font-size:1.1rem; {% if row.breakdown.overage > 0 %}color: var(--color-accent-warn-dark);{% endif %}">
-            {{ row.breakdown.overage }}
+            {{ row.breakdown.overage|num }}
           </div>
         </div>
         {% endif %}

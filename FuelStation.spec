@@ -229,6 +229,8 @@ hiddenimports += [
     "PySide6.QtWidgets",
     "PySide6.QtNetwork",
     "PySide6.QtPrintSupport",
+    "PySide6.QtPdf",              # direct printing (desktop/direct_print.py)
+    "desktop.direct_print",
     "PySide6.QtWebChannel",
     "PySide6.QtWebEngineCore",
     "PySide6.QtWebEngineWidgets",

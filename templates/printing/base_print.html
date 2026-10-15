@@ -5,7 +5,7 @@
   <title>{% block title %}گزارش{% endblock %}</title>
   <link rel="stylesheet" href="css/print.css">
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
   <div class="print-header">
     <div>
       <p class="print-header__station-name">{{ station.name }}</p>

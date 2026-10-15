@@ -236,8 +236,8 @@ class DepositDecadeReworkTests(TestCase):
         for label in ["تاریخ سند", "شماره ی سند", "مبلغ واریزی", "مبلغ مابه التفاوت"]:
             self.assertIn(label, content)
         self.assertIn("DOC-77", content)
-        self.assertIn("500000", content)
-        self.assertIn("1000", content)
+        self.assertIn("500,000", content)
+        self.assertIn("1,000", content)
 
     def test_decade_total_equals_sum_of_its_deposits(self):
         """Basic check #2: جمع مبلغ واریزی equals the sum of all
@@ -337,7 +337,7 @@ class DepositListAutoDisplayAndTotalsTests(TestCase):
         )
         resp = self.client.get("/deposits/?year=1405&month=6")
         self.assertContains(resp, "جمع مبلغ واریزی ماه")
-        self.assertContains(resp, "175000")
+        self.assertContains(resp, "175,000")
 
     def test_print_link_present_for_each_decade_on_landing_page(self):
         resp = self.client.get("/deposits/?year=1405&month=6")

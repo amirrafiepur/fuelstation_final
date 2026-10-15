@@ -107,7 +107,7 @@ class PurchaseWorkflowHttpTests(_TestCase):
         # own quantity, since the range view no longer shows a
         # single-day aggregate total -- see invoice_list()'s docstring).
         resp = self.client.get(f"/purchases/?start_date={self.date}&end_date={self.date}")
-        self.assertContains(resp, "15000")
+        self.assertContains(resp, "15,000")
 
     # Rule 2: duplicate tanker numbers accepted, no error/warning.
     def test_duplicate_tanker_number_accepted_via_form(self):
@@ -443,7 +443,7 @@ class PurchasesRangeViewTests(_TestCase):
             purchase_rate=Decimal("1000"), program_number="BN-77", tanker_number="TN-88",
         )
         resp = self.client.get("/purchases/?start_date=2026-08-01&end_date=2026-08-10")
-        self.assertContains(resp, "12345")
+        self.assertContains(resp, "12,345")
         self.assertContains(resp, "BN-77")
         self.assertContains(resp, "TN-88")
 
@@ -468,8 +468,8 @@ class PurchasesRangeViewTests(_TestCase):
         content = resp.content.decode()
         # Both rows appear, and the Regular quantity appears before the
         # Super quantity, matching the tank ordering (product__name).
-        self.assertIn("1111", content)
-        self.assertIn("2222", content)
+        self.assertIn("1,111", content)
+        self.assertIn("2,222", content)
 
     def test_print_button_links_to_the_combined_pdf_endpoint(self):
         resp = self.client.get("/purchases/?start_date=2026-08-01&end_date=2026-08-10")

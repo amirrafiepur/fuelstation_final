@@ -198,7 +198,7 @@ class InventoryWorkflowHttpTests(_TestCase):
             {"actual_inventory": "905"},
         )
         resp = self.client.get(f"/inventory/{self.day1}/")
-        self.assertContains(resp, "1105")  # total inventory
+        self.assertContains(resp, "1,105")  # total inventory
         self.assertContains(resp, "905")   # theoretical inventory + actual
 
     def test_day_two_does_not_prompt_for_opening_inventory(self):
@@ -367,10 +367,10 @@ class TanksSectionUiReworkTests(_TestCase):
 
         resp = self.client.get(f"/inventory/{self.day1}/tank/{self.tank.id}/actual/")
         content = resp.content.decode()
-        self.assertIn("1000", content)  # مانده از قبل
+        self.assertIn("1,000", content)  # مانده از قبل
         self.assertIn("100", content)   # خرید روزانه
         self.assertIn("5", content)     # بازگشت از آزمایش / آزمایش
-        self.assertIn("1105", content)  # جمع کل
+        self.assertIn("1,105", content)  # جمع کل
         self.assertIn("200", content)   # فروش روزانه
         self.assertIn("905", content)   # موجودی غیرواقعی
 

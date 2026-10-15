@@ -63,16 +63,16 @@
       {% for row in rows %}
       <tr style="border-bottom: 1px solid var(--color-border);">
         <td style="padding: 0.4rem;">{{ row.product.name|persian_product }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.beginning_inventory }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_purchase }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test_return }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_overage }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.received_total }}</td>
-        <td style="padding: 0.4rem; border-right: 3px solid var(--color-primary);" class="numeric">{{ row.total_sales }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test_return }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_shortage }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.ending_inventory|default:"—" }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.dispatched_total }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.beginning_inventory|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_purchase|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test_return|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_overage|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.received_total|num }}</td>
+        <td style="padding: 0.4rem; border-right: 3px solid var(--color-primary);" class="numeric">{{ row.total_sales|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test_return|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_shortage|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.ending_inventory|default:"—"|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.dispatched_total|num }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -99,7 +99,7 @@
         <td style="padding: 0.4rem;">{{ row.product.name|persian_product }}</td>
         <td style="padding: 0.4rem;">
           {% if row.digital_sales_difference is not None %}
-            <span class="numeric">{{ row.digital_sales_difference }}</span>
+            <span class="numeric">{{ row.digital_sales_difference|num }}</span>
           {% else %}
             <span class="numeric" style="color: var(--color-ink-muted);">—</span>
           {% endif %}
@@ -108,10 +108,10 @@
             ورود فروش دیجیتال
           </a>
         </td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.commission }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.unauthorized_shortage }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_received|default:"—" }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.tanker_count }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.commission|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.unauthorized_shortage|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_received|default:"—"|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.tanker_count|num }}</td>
         <td style="padding: 0.4rem;">
           <form method="post" action="{% url 'statement:tanker_capacity_entry' row.entry.id %}"
                 style="display:flex; gap:0.4rem; align-items:center;">

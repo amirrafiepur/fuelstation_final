@@ -26,13 +26,13 @@
     {% for row in rows %}
     <tr>
       <td class="numeric">{{ row.date|jalali }}</td>
-      <td class="numeric">{{ row.total_operation }}</td>
-      <td class="numeric">{{ row.total_test }}</td>
-      <td class="numeric">{{ row.total_mechanical_sales }}</td>
+      <td class="numeric">{{ row.total_operation|num }}</td>
+      <td class="numeric">{{ row.total_test|num }}</td>
+      <td class="numeric">{{ row.total_mechanical_sales|num }}</td>
       {% for total in row.product_totals %}
-      <td class="numeric">{{ total }}</td>
+      <td class="numeric">{{ total|num }}</td>
       {% endfor %}
-      <td class="numeric">{{ row.total_amount }}</td>
+      <td class="numeric">{{ row.total_amount|num }}</td>
     </tr>
     {% endfor %}
   </tbody>

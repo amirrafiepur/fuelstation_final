@@ -30,7 +30,7 @@ from pathlib import Path
 
 HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
-WINDOW_TITLE = "سامانه حسابداری جایگاه ۱۴۰ جهان‌پور"
+WINDOW_TITLE = "سامانه حسابداری جایگاه ۱۴۰ جهانی پور"
 
 
 def _project_root() -> Path:
@@ -39,6 +39,8 @@ def _project_root() -> Path:
         return Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
     return Path(__file__).resolve().parents[1]
 
+if str(_project_root()) not in sys.path:
+    sys.path.insert(0, str(_project_root()))
 
 logger = logging.getLogger("fuelstation")
 
@@ -296,6 +298,51 @@ def _make_print_download_dir() -> Path:
     return directory
 
 
+def _show_persian_message(parent, title: str, text: str, level: str = "info") -> None:
+    """Blocking, right-to-left Persian message box for the print workflow."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QMessageBox
+
+    from desktop import direct_print
+
+    box = QMessageBox(parent)
+    box.setIcon(
+        QMessageBox.Icon.Warning if level == "warning" else QMessageBox.Icon.Information
+    )
+    box.setWindowTitle(title)
+    box.setText(text)
+    box.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    ok_button = box.addButton(direct_print.MSG_BUTTON_OK, QMessageBox.ButtonRole.AcceptRole)
+    box.setDefaultButton(ok_button)
+    box.exec()
+
+
+def _print_saved_pdf(direct_print, saved_path: Path, open_in_viewer, show_message, show_status):
+    """Run direct_print.print_or_fallback with a busy cursor while the
+    pages are rendered and spooled."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+
+    def message_with_normal_cursor(*args) -> None:
+        # A message box must not show the busy cursor.
+        QApplication.restoreOverrideCursor()
+        try:
+            show_message(*args)
+        finally:
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+
+    QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+    try:
+        return direct_print.print_or_fallback(
+            saved_path,
+            open_in_viewer=open_in_viewer,
+            show_message=message_with_normal_cursor,
+            show_status=show_status,
+        )
+    finally:
+        QApplication.restoreOverrideCursor()
+
+
 def _connect_print_download_handler(view, download_dir: Path) -> None:
     """
     Save any PDF the WebEngine profile tries to download to a private temp
@@ -327,7 +374,21 @@ def _connect_print_download_handler(view, download_dir: Path) -> None:
     from PySide6.QtGui import QDesktopServices
     from PySide6.QtWebEngineCore import QWebEngineDownloadRequest
 
+    from desktop import direct_print
+
     last_page_url = {"value": view.url()}
+
+    def open_in_viewer(path: Path) -> bool:
+        return QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+
+    def show_message(title: str, text: str, level: str) -> None:
+        _show_persian_message(view, title, text, level)
+
+    def show_status(text: str) -> None:
+        window = view.window()
+        status_bar = getattr(window, "statusBar", None)
+        if callable(status_bar):
+            status_bar().showMessage(text, 6000)
 
     def on_url_changed(url: "QUrl") -> None:
         last_page_url["value"] = url
@@ -355,8 +416,20 @@ def _connect_print_download_handler(view, download_dir: Path) -> None:
 
         def on_state_changed(state) -> None:
             if state == QWebEngineDownloadRequest.DownloadState.DownloadCompleted:
+                # Send the report straight to the connected printer; with
+                # no printer (or if printing fails) the operator is told in
+                # Persian and the PDF opens in the OS viewer as before, so
+                # the document is never lost. See desktop/direct_print.py.
                 saved_path = download_dir / suggested_name
-                QDesktopServices.openUrl(QUrl.fromLocalFile(str(saved_path)))
+                _print_saved_pdf(
+                    direct_print, saved_path, open_in_viewer, show_message, show_status
+                )
+            elif state == QWebEngineDownloadRequest.DownloadState.DownloadInterrupted:
+                show_message(
+                    direct_print.MSG_PDF_FAILED_TITLE,
+                    direct_print.MSG_PDF_FAILED,
+                    "warning",
+                )
             if state in settled_states and return_url.isValid():
                 view.setUrl(return_url)
 

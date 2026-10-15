@@ -83,7 +83,7 @@ class ReportsHttpTests(TestCase):
         # here are Jalali, so this queries the Jalali month containing it.
         resp = self.client.get("/reports/nozzle-monthly/?year=1405&month=5")
         self.assertContains(resp, "100")  # total operation and total sales_amount
-        self.assertContains(resp, "120000")  # total total_amount (100 * 1200)
+        self.assertContains(resp, "120,000")  # total total_amount (100 * 1200)
 
     def test_nozzle_monthly_excludes_other_months(self):
         invoice = SalesInvoice.objects.create(working_day=self.wd, operator=self.user)
@@ -169,7 +169,7 @@ class ReportsHttpTests(TestCase):
 
         # Report immediately shows the new data
         resp2 = self.client.get(url)
-        self.assertContains(resp2, "100.00")  # operation, mechanical_sales, daily_total, cumulative_total
+        self.assertContains(resp2, "100")  # operation, mechanical_sales, daily_total, cumulative_total
 
         # Edit the sale
         sale = NozzleSale.objects.get(nozzle=self.nozzle)
@@ -178,7 +178,7 @@ class ReportsHttpTests(TestCase):
 
         # Report immediately reflects the change in the table data
         resp3 = self.client.get(url)
-        self.assertContains(resp3, "150.00")  # operation, mechanical_sales, daily_total, cumulative_total (updated)
+        self.assertContains(resp3, "150")  # operation, mechanical_sales, daily_total, cumulative_total (updated)
 
 
 # ---------------------------------------------------------------------------
@@ -644,8 +644,8 @@ class NozzleLedgerNewColumnsTests(TestCase):
 
         # Day 1: daily_total = 55 (mech) + 5 (test) = 60, cumulative = 60.
         # Day 2: daily_total = 50, cumulative = 60 + 50 = 110.
-        self.assertContains(resp, "60.00")
-        self.assertContains(resp, "110.00")
+        self.assertContains(resp, "60")
+        self.assertContains(resp, "110")
 
 
 class AllNozzlesPerformanceTests(TestCase):

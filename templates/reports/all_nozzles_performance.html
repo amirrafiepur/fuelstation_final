@@ -54,13 +54,13 @@
       {% for row in rows %}
       <tr style="border-bottom: 1px solid var(--color-border);">
         <td style="padding: 0.4rem;" class="numeric">{{ row.date|jalali }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_operation }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_mechanical_sales }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_operation|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_mechanical_sales|num }}</td>
         {% for total in row.product_totals %}
-        <td style="padding: 0.4rem;" class="numeric">{{ total }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ total|num }}</td>
         {% endfor %}
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_amount }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_amount|num }}</td>
       </tr>
       {% endfor %}
     </tbody>

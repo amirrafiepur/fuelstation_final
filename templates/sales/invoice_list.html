@@ -29,11 +29,11 @@
         <td style="padding: 0.5rem;" class="numeric">{{ row.working_day.date|jalali }}</td>
         <td style="padding: 0.5rem;" class="numeric">{{ row.invoice.entry_time|date:"H:i" }}</td>
         <td style="padding: 0.5rem;">{{ row.invoice.operator }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ row.nozzle_count|trim_zeros }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ row.total_operation|trim_zeros }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ row.total_test|trim_zeros }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ row.total_sales|trim_zeros }}</td>
-        <td style="padding: 0.5rem;" class="numeric">{{ row.total_amount|trim_zeros }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ row.nozzle_count|num }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ row.total_operation|num }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ row.total_test|num }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ row.total_sales|num }}</td>
+        <td style="padding: 0.5rem;" class="numeric">{{ row.total_amount|num }}</td>
       </tr>
       {% endfor %}
     </tbody>

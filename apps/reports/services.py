@@ -69,61 +69,77 @@ def nozzle_performance_ledger(nozzle: Nozzle, start_date, end_date):
     return rows
 
 
-def all_nozzles_performance_summary(start_date, end_date):
-    """
-    "کارکرد تمام نازل‌ها": one row per working day in [start_date,
-    end_date], each row being the SUM across every nozzle at the station
-    (not per-nozzle, unlike nozzle_performance_ledger() above -- this is
-    a deliberately separate function/view per that report's own
-    requirements; nozzle_performance_ledger() itself is untouched).
+#: "لیست اطلاعات فروش" always lists nozzles 1..26 -- one row per nozzle,
+#: whether or not that nozzle sold anything in the selected month.
+ALL_NOZZLES_REPORT_NUMBERS = range(1, 27)
 
-    Reuses NozzleSale's existing operation/mechanical_sales/total_amount
-    properties verbatim for every sale on that day -- no new formulas.
-    Per-product totals (e.g. Regular vs Super) are grouped by the actual
-    Product row via nozzle.tank.product, never by a hardcoded product
-    name, so this works unmodified regardless of how many products or
-    what they're called (see apps/stations/models.py's Product
-    docstring: "product names must never be hardcoded into calculation
-    logic").
 
-    Each row's "products" key maps Product.id -> that product's summed
-    mechanical_sales for the day, letting the view/template pick out
-    "فروش فرآورده معمولی"/"فروش فرآورده سوپر" (or any other product) by
-    the actual Product objects rather than by name string.
+def all_nozzles_monthly_summary(year: int, month: int):
     """
-    rows = []
-    for wd in DailyWorkingDay.objects.filter(
-        date__gte=start_date, date__lte=end_date
-    ).order_by("date"):
-        sales = NozzleSale.objects.filter(sales_invoice__working_day=wd).select_related(
-            "nozzle__tank__product"
+    "لیست اطلاعات فروش": a monthly, nozzle-based report. Exactly 26 rows,
+    one per nozzle number 1..26, each holding that nozzle's totals over
+    the selected JALALI year/month (converted to a Gregorian range with
+    jalali_month_bounds(), like every other monthly report):
+
+        total_operation         جمع کارکرد
+        total_test              جمع آزمایش
+        total_mechanical_sales  جمع فروش مکانیکی
+        total_amount            جمع مبلغ کل
+
+    Reuses NozzleSale's existing operation / test / mechanical_sales /
+    total_amount values verbatim for every sale in the month -- no new
+    formulas. A nozzle with no sales that month (or one that does not
+    exist yet) still gets its row, with zeros: the list is always the
+    full 1..26, never a fabricated gap or a shorter table.
+    """
+    from apps.core.jalali import jalali_month_bounds
+
+    first_day, last_day = jalali_month_bounds(year, month)
+
+    sales = NozzleSale.objects.filter(
+        sales_invoice__working_day__date__gte=first_day,
+        sales_invoice__working_day__date__lte=last_day,
+    ).select_related("nozzle")
+
+    zero = Decimal("0")
+    by_number = {}
+    for sale in sales:
+        acc = by_number.setdefault(
+            sale.nozzle.number,
+            {"total_operation": zero, "total_test": zero,
+             "total_mechanical_sales": zero, "total_amount": zero},
         )
+        acc["total_operation"] += sale.operation
+        acc["total_test"] += sale.test
+        acc["total_mechanical_sales"] += sale.mechanical_sales
+        acc["total_amount"] += sale.total_amount
 
-        total_operation = Decimal("0")
-        total_test = Decimal("0")
-        total_mechanical_sales = Decimal("0")
-        total_amount = Decimal("0")
-        by_product = {}
-
-        for sale in sales:
-            total_operation += sale.operation
-            total_test += sale.test
-            total_mechanical_sales += sale.mechanical_sales
-            total_amount += sale.total_amount
-
-            product = sale.nozzle.tank.product
-            by_product[product.id] = by_product.get(product.id, Decimal("0")) + sale.mechanical_sales
-
-        if sales.exists():
-            rows.append({
-                "date": wd.date,
-                "total_operation": total_operation,
-                "total_test": total_test,
-                "total_mechanical_sales": total_mechanical_sales,
-                "total_amount": total_amount,
-                "by_product": by_product,
-            })
+    rows = []
+    for number in ALL_NOZZLES_REPORT_NUMBERS:
+        acc = by_number.get(number)
+        rows.append({
+            "nozzle_number": number,
+            "total_operation": acc["total_operation"] if acc else zero,
+            "total_test": acc["total_test"] if acc else zero,
+            "total_mechanical_sales": acc["total_mechanical_sales"] if acc else zero,
+            "total_amount": acc["total_amount"] if acc else zero,
+        })
     return rows
+
+
+def all_nozzles_monthly_totals(rows):
+    """
+    The monthly summary strip above the table: each total is the sum of
+    that column over exactly the rows passed in (the 26 rows displayed),
+    so the summary can never disagree with the table beneath it.
+    """
+    zero = Decimal("0")
+    return {
+        "total_operation": sum((r["total_operation"] for r in rows), zero),
+        "total_test": sum((r["total_test"] for r in rows), zero),
+        "total_mechanical_sales": sum((r["total_mechanical_sales"] for r in rows), zero),
+        "total_amount": sum((r["total_amount"] for r in rows), zero),
+    }
 
 
 def nozzle_performance_monthly(nozzle: Nozzle, year: int, month: int):

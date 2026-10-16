@@ -67,48 +67,23 @@ def nozzle_performance_ledger(request, nozzle_id=None):
 @login_required
 def all_nozzles_performance(request):
     """
-    کارکرد تمام نازل‌ها: one row per working day, each the SUM across
-    every nozzle -- a deliberately separate view/URL from
-    nozzle_performance_ledger() above (which is untouched), per that
-    report's own requirement not to reuse the per-nozzle view.
+    لیست اطلاعات فروش: a monthly, nozzle-based report. The operator picks
+    a JALALI year/month (same selector pattern as واریزی‌ها and صورت وضعیت
+    ماهانه); the table always has the 26 nozzle rows, with a summary strip
+    of column totals above it. A deliberately separate view/URL from
+    nozzle_performance_ledger() (the per-nozzle daily ledger).
     """
     today = workday_services.get_today()
+    default_year, default_month = current_jalali_year_month(today)
+    year = int(request.GET.get("year", default_year))
+    month = int(request.GET.get("month", default_month))
 
-    # Default date range: current JALALI month -- identical convention
-    # to nozzle_performance_ledger()/petroleum_inventory_operations_ledger()
-    # above.
-    jalali_year, jalali_month = current_jalali_year_month(today)
-    start_date, _ = jalali_month_bounds(jalali_year, jalali_month)
-    end_date = today
-
-    if request.GET.get("start_date"):
-        start_date = datetime.date.fromisoformat(request.GET.get("start_date"))
-    if request.GET.get("end_date"):
-        end_date = datetime.date.fromisoformat(request.GET.get("end_date"))
-
-    rows = report_services.all_nozzles_performance_summary(start_date, end_date)
-
-    # Products in a stable order (matches the ordering used elsewhere,
-    # e.g. the per-nozzle ledger's own dropdown) -- never hardcoded names,
-    # so "فروش فرآورده معمولی"/"فروش فرآورده سوپر" map to whichever two
-    # products actually exist, in this order. Each row gets its
-    # per-product totals attached as a same-order list ("product_totals")
-    # so the template can iterate rows/products in parallel without
-    # needing a dict-by-variable-key template filter.
-    products = Product.objects.order_by("name")
-    for row in rows:
-        row["product_totals"] = [
-            row["by_product"].get(product.id, Decimal("0")) for product in products
-        ]
+    rows = report_services.all_nozzles_monthly_summary(year, month)
+    totals = report_services.all_nozzles_monthly_totals(rows)
 
     return render(
         request, "reports/all_nozzles_performance.html",
-        {
-            "rows": rows,
-            "products": products,
-            "start_date": start_date,
-            "end_date": end_date,
-        },
+        {"rows": rows, "totals": totals, "year": year, "month": month},
     )
 
 

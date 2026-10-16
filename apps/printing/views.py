@@ -61,11 +61,11 @@ def nozzle_ledger_print(request, nozzle_id):
 
 @login_required
 def all_nozzles_performance_print(request):
-    start_date = datetime.date.fromisoformat(request.GET["start_date"])
-    end_date = datetime.date.fromisoformat(request.GET["end_date"])
+    year = int(request.GET["year"])
+    month = int(request.GET["month"])
 
-    context = printing_services.build_all_nozzles_performance_context(start_date, end_date)
-    filename = f"all-nozzles-{start_date}-{end_date}.pdf"
+    context = printing_services.build_all_nozzles_performance_context(year, month)
+    filename = f"all-nozzles-{year}-{month:02d}.pdf"
     return _render_pdf_response("printing/all_nozzles_performance_print.html", context, filename)
 
 

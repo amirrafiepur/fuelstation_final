@@ -71,3 +71,18 @@ def deposits_in_decade(year: int, month: int, decade: str):
     return Deposit.objects.filter(
         year=year, month=month, decade=decade
     ).order_by("date")
+
+
+def decade_total(year: int, month: int, decade: str) -> Decimal:
+    """
+    "مجموع واریزی دهه" for one decade of one JALALI month: the sum of
+    deposit_amount over exactly the records deposits_in_decade() returns
+    for that year/month/decade -- the same records the decade's table and
+    PDF list -- so the figure on the summary and the rows beneath it can
+    never disagree. Read-only; nothing is stored. Zero when the decade has
+    no deposits.
+    """
+    total = deposits_in_decade(year, month, decade).aggregate(
+        total=Sum("deposit_amount")
+    )["total"]
+    return total or Decimal("0")

@@ -115,7 +115,7 @@ class NumberDisplayFixtureMixin:
             "inventory_day": f"/inventory/{self.d1.isoformat()}/",
             "inventory_actual": f"/inventory/{self.d1.isoformat()}/tank/{self.rtank.id}/actual/",
             "nozzle_ledger": f"/reports/nozzle-ledger/?nozzle_id={self.n2.id}&start_date=2026-07-23&end_date=2026-08-01",
-            "all_nozzles": "/reports/all-nozzles/?start_date=2026-07-23&end_date=2026-08-01",
+            "all_nozzles": "/reports/all-nozzles/?year=1405&month=5",
             "nozzle_monthly": "/reports/nozzle-monthly/?year=1405&month=5",
             "petroleum_ledger": f"/reports/petroleum-ledger/?tank_id={self.rtank.id}&start_date=2026-07-23&end_date=2026-08-01",
             "petroleum_monthly": "/reports/petroleum-monthly/?year=1405&month=5",
@@ -129,7 +129,7 @@ class NumberDisplayFixtureMixin:
         return {
             "sales_invoice": f"/print/sales-invoice/{self.d1.isoformat()}/",
             "nozzle_ledger": f"/print/nozzle-ledger/{self.n2.id}/?start_date=2026-07-23&end_date=2026-08-01",
-            "all_nozzles": "/print/all-nozzles/?start_date=2026-07-23&end_date=2026-08-01",
+            "all_nozzles": "/print/all-nozzles/?year=1405&month=5",
             "nozzle_monthly": "/print/nozzle-monthly/?year=1405&month=5",
             "petroleum_ledger": f"/print/petroleum-ledger/{self.rtank.id}/?start_date=2026-07-23&end_date=2026-08-01",
             "petroleum_monthly": "/print/petroleum-monthly/?year=1405&month=5",

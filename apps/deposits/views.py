@@ -86,6 +86,8 @@ def deposit_decade_detail(request, year, month, decade):
         {
             "deposits": deposits, "year": year, "month": month,
             "decade": decade, "decade_label": decade_label,
+            # "مجموع واریزی دهه": sum over exactly the deposits listed below.
+            "decade_total": deposit_services.decade_total(year, month, decade),
         },
     )
 

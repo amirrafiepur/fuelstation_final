@@ -1,43 +1,49 @@
 {% extends "printing/base_print.html" %}
-{% load jalali_tags %}
 {% load display_tags %}
 {% block title %}کارکرد تمام نازل‌ها{% endblock %}
 {% block report_title %}کارکرد تمام نازل‌ها{% endblock %}
-{% block report_period %}
-  از {{ start_date|jalali }} تا {{ end_date|jalali }}
-{% endblock %}
+{% block report_period %}سال {{ year }} — ماه {{ month }}{% endblock %}
 
 {% block report_body %}
-{% if rows %}
+<table class="print-table print-summary">
+  <thead>
+    <tr>
+      <th>جمع کارکرد</th>
+      <th>مجموع آزمایش</th>
+      <th>مجموع فروش مکانیکی</th>
+      <th>مجموع مبلغ کل</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="numeric">{{ totals.total_operation|num }}</td>
+      <td class="numeric">{{ totals.total_test|num }}</td>
+      <td class="numeric">{{ totals.total_mechanical_sales|num }}</td>
+      <td class="numeric">{{ totals.total_amount|num }}</td>
+    </tr>
+  </tbody>
+</table>
+
 <table class="print-table">
   <thead>
     <tr>
-      <th>تاریخ</th>
+      <th>شماره نازل</th>
       <th>جمع کارکرد</th>
       <th>جمع آزمایش</th>
       <th>جمع فروش مکانیکی</th>
-      {% for product in products %}
-      <th>فروش فرآورده {{ product.name|persian_product }}</th>
-      {% endfor %}
-      <th>مجموع مبلغ کل</th>
+      <th>جمع مبلغ کل</th>
     </tr>
   </thead>
   <tbody>
     {% for row in rows %}
     <tr>
-      <td class="numeric">{{ row.date|jalali }}</td>
+      <td class="numeric">{{ row.nozzle_number }}</td>
       <td class="numeric">{{ row.total_operation|num }}</td>
       <td class="numeric">{{ row.total_test|num }}</td>
       <td class="numeric">{{ row.total_mechanical_sales|num }}</td>
-      {% for total in row.product_totals %}
-      <td class="numeric">{{ total|num }}</td>
-      {% endfor %}
       <td class="numeric">{{ row.total_amount|num }}</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
-{% else %}
-  <p class="print-empty-note">در بازه انتخاب‌شده اطلاعاتی یافت نشد.</p>
-{% endif %}
 {% endblock %}

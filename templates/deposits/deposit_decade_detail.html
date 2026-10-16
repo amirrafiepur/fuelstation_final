@@ -18,6 +18,13 @@
     </div>
   </div>
 
+  <div class="dashboard-columns" id="decade-total" style="grid-template-columns: 1fr; margin-bottom: 1.25rem;">
+    <div>
+      <div class="form-label">مجموع واریزی دهه</div>
+      <div class="numeric" data-total="decade" style="font-size:1.3rem;">{{ decade_total|num }}</div>
+    </div>
+  </div>
+
   {% if deposits %}
   <table style="width:100%; border-collapse: collapse; font-size: 0.9rem;">
     <thead>

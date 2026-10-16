@@ -8,6 +8,15 @@
 {% endblock %}
 
 {% block report_body %}
+<table class="print-table print-summary">
+  <thead>
+    <tr><th>مجموع واریزی دهه</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="numeric">{{ decade_total|num }}</td></tr>
+  </tbody>
+</table>
+
 {% if deposits %}
 <table class="print-table">
   <thead>

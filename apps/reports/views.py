@@ -167,12 +167,15 @@ def petroleum_inventory_operations_ledger(request, tank_id=None):
     tanks = Tank.objects.select_related("product").order_by("product__name")
     selected_tank = None
     rows = []
+    totals = None
 
     if tank_id:
         selected_tank = Tank.objects.get(pk=tank_id)
         rows = report_services.petroleum_inventory_operations_ledger(
             selected_tank, start_date, end_date
         )
+        # "مجموع اطلاعات": totals of exactly the rows displayed below.
+        totals = report_services.petroleum_inventory_ledger_totals(rows)
 
     return render(
         request, "reports/petroleum_inventory_ledger.html",
@@ -180,6 +183,7 @@ def petroleum_inventory_operations_ledger(request, tank_id=None):
             "tanks": tanks,
             "selected_tank": selected_tank,
             "rows": rows,
+            "totals": totals,
             "start_date": start_date,
             "end_date": end_date,
         },

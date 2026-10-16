@@ -49,6 +49,16 @@
     </div>
 
     {% if rows %}
+    <h3 class="form-label" style="margin: 0 0 0.4rem 0;">مجموع اطلاعات</h3>
+    <div class="dashboard-columns" id="ledger-totals" style="grid-template-columns: repeat(6, 1fr); margin-bottom: 1.25rem;">
+      <div><div class="form-label">مجموع خرید</div><div class="numeric" data-total="purchase" style="font-size:1.2rem;">{{ totals.total_purchase|num }}</div></div>
+      <div><div class="form-label">مجموع سرک</div><div class="numeric" data-total="overage" style="font-size:1.2rem;">{{ totals.total_overage|num }}</div></div>
+      <div><div class="form-label">مجموع آزمایش</div><div class="numeric" data-total="test-received" style="font-size:1.2rem;">{{ totals.total_test_received|num }}</div></div>
+      <div><div class="form-label">مجموع فروش</div><div class="numeric" data-total="sales" style="font-size:1.2rem;">{{ totals.total_sales|num }}</div></div>
+      <div><div class="form-label">مجموع کسری</div><div class="numeric" data-total="shortage" style="font-size:1.2rem;">{{ totals.total_shortage|num }}</div></div>
+      <div><div class="form-label">مجموع آزمایش</div><div class="numeric" data-total="test-dispatched" style="font-size:1.2rem;">{{ totals.total_test_dispatched|num }}</div></div>
+    </div>
+
     <div style="overflow-x: auto;">
     <table style="width:100%; border-collapse: collapse; font-size: 0.78rem;">
       <thead>

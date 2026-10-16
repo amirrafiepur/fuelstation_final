@@ -376,6 +376,62 @@ def petroleum_inventory_operations_ledger(tank: Tank, start_date, end_date):
     return rows
 
 
+def petroleum_inventory_ledger_totals(rows):
+    """
+    "مجموع اطلاعات" for "دفتر موجودی و عملیات": the totals of the rows the
+    ledger is DISPLAYING for the selected tank and date range -- `rows` is
+    exactly what petroleum_inventory_operations_ledger() returned for that
+    range, so changing the range changes the rows and therefore the totals
+    (nothing is stored or cached; the screen and the PDF both call this on
+    the same rows).
+
+    Each total sums the same cells the table shows in that column:
+
+        total_purchase        مجموع خرید   -- every "مقدار خرید" (one per purchase invoice)
+        total_overage         مجموع سرک    -- every "سرک"
+        total_test_received   مجموع آزمایش -- every "مجموع آزمایش" cell on the رسیده side
+        total_sales           مجموع فروش   -- every "جمع فروش مکانیکی"
+        total_shortage        مجموع کسری   -- every "کسری"
+        total_test_dispatched مجموع آزمایش -- every "جمع آزمایش" cell on the خارج شده side
+
+    The two test totals are summed independently from their own side of
+    the table; they are equal because both sides show the same daily test
+    return. Cells that are blank (a day whose actual inventory was never
+    entered has no سرک/کسری, and a day's extra purchase rows carry no
+    day-level values) contribute nothing, exactly as they show blank.
+    """
+    total_purchase = Decimal("0")
+    total_overage = Decimal("0")
+    total_test_received = Decimal("0")
+    total_sales = Decimal("0")
+    total_shortage = Decimal("0")
+    total_test_dispatched = Decimal("0")
+
+    for row in rows:
+        for received in row["received_rows"]:
+            if received["quantity"] is not None:
+                total_purchase += received["quantity"]
+            if received["overage"] is not None:
+                total_overage += received["overage"]
+            if received["test_return"] is not None:
+                total_test_received += received["test_return"]
+        if row["daily_sales"] is not None:
+            total_sales += row["daily_sales"]
+        if row["shortage"] is not None:
+            total_shortage += row["shortage"]
+        if row["test_return"] is not None:
+            total_test_dispatched += row["test_return"]
+
+    return {
+        "total_purchase": total_purchase,
+        "total_overage": total_overage,
+        "total_test_received": total_test_received,
+        "total_sales": total_sales,
+        "total_shortage": total_shortage,
+        "total_test_dispatched": total_test_dispatched,
+    }
+
+
 def petroleum_inventory_monthly(tank: Tank, year: int, month: int):
     """
     Monthly Tank Statement: one row per tank per month.

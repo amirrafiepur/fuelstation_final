@@ -133,6 +133,8 @@ def build_petroleum_ledger_context(tank, start_date, end_date) -> dict:
         "start_date": start_date,
         "end_date": end_date,
         "rows": rows,
+        # "مجموع اطلاعات" -- same function and same rows as the screen.
+        "totals": report_services.petroleum_inventory_ledger_totals(rows),
     }
 
 

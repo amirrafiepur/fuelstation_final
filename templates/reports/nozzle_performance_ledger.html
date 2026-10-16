@@ -5,6 +5,13 @@
 {% block title %}گزارش کارکرد نازل‌ها — دفتر روزانه{% endblock %}
 {% block extra_head %}
 <script src="{% static 'js/jalali.js' %}"></script>
+<style>
+  /* Table-navigation mode (Enter): the selected row is highlighted in blue.
+     scroll-margin keeps a little context visible around it when the page
+     scrolls to follow the selection. */
+  #nozzle-ledger-table tbody tr { scroll-margin-block: 2.5rem; }
+  #nozzle-ledger-table tbody tr.row-selected td { background: #1d4ed8; color: #fff; }
+</style>
 {% endblock %}
 {% block content %}
 
@@ -49,7 +56,10 @@
     </div>
 
     {% if rows %}
-    <table style="width:100%; border-collapse: collapse; font-size: 0.85rem;">
+    <p id="table-mode-hint" hidden style="margin: 0 0 0.5rem 0; font-size: 0.8rem; color: var(--color-ink-muted);">
+      حالت پیمایش جدول فعال است — با ↑ و ↓ بین ردیف‌ها حرکت کنید؛ برای بازگشت به انتخاب نازل، Enter را بزنید.
+    </p>
+    <table id="nozzle-ledger-table" style="width:100%; border-collapse: collapse; font-size: 0.85rem;">
       <thead>
         <tr style="border-bottom: 2px solid var(--color-border); text-align: right;">
           <th style="padding: 0.4rem;">تاریخ</th>
@@ -85,38 +95,118 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () { JalaliCalendar.bindNavInputs(); });
 
-// Keyboard navigation (no mouse needed): ArrowUp -> next nozzle,
-// ArrowDown -> previous nozzle, clamped to the first/last nozzle in the
-// list (1..26) -- never wraps or goes out of range. Keeps the current
-// date range (the select's own onchange already carries start_date/
-// end_date through, unchanged). Ignored while the user is typing/
-// focused on any input, select, textarea, or editable element, so it
-// never interferes with normal keyboard use elsewhere on the page.
-document.addEventListener('keydown', function (e) {
-  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+// Keyboard navigation (no mouse needed), two modes toggled by Enter:
+//
+//   Nozzle mode (default): ArrowUp -> next nozzle, ArrowDown -> previous
+//     nozzle, clamped to the first/last nozzle in the list (1..26) --
+//     never wraps or goes out of range. Keeps the current date range (the
+//     select's own onchange already carries start_date/end_date through).
+//
+//   Table mode (Enter): the first table row is highlighted in blue;
+//     ArrowDown -> next row, ArrowUp -> previous row, clamped to the
+//     first/last row, and the page scrolls to keep the selected row in
+//     view. Enter again leaves table mode, removes the highlight and
+//     returns to nozzle mode.
+//
+// Enter does nothing except toggle the mode, and only when there is a
+// table to navigate. Every key is ignored while the user is typing in or
+// operating a control (input, select, textarea, button, link, editable
+// element) and when Ctrl/Alt/Meta is held, so normal keyboard behaviour
+// elsewhere on the page is never affected.
+(function () {
+  var tableMode = false;
+  var selectedIndex = -1;
 
-  var tag = (e.target.tagName || '').toLowerCase();
-  if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable) {
-    return;
+  function isInteractive(el) {
+    if (!el) return false;
+    var tag = (el.tagName || '').toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' ||
+           tag === 'button' || tag === 'a' || tag === 'summary' ||
+           !!el.isContentEditable;
   }
 
-  var select = document.getElementById('nozzle-select');
-  if (!select) return;
-  var options = Array.prototype.slice.call(select.options).filter(function (o) { return o.value; });
-  if (options.length === 0) return;
-
-  var currentIndex = options.findIndex(function (o) { return o.selected; });
-  var nextIndex;
-  if (e.key === 'ArrowUp') {
-    nextIndex = currentIndex < 0 ? 0 : Math.min(currentIndex + 1, options.length - 1);
-  } else {
-    nextIndex = currentIndex < 0 ? 0 : Math.max(currentIndex - 1, 0);
+  function tableRows() {
+    return Array.prototype.slice.call(
+      document.querySelectorAll('#nozzle-ledger-table tbody tr')
+    );
   }
-  if (nextIndex === currentIndex) return;
 
-  e.preventDefault();
-  select.value = options[nextIndex].value;
-  select.dispatchEvent(new Event('change'));
-});
+  function highlight(list, index) {
+    list.forEach(function (row, i) {
+      if (i === index) {
+        row.classList.add('row-selected');
+        row.setAttribute('aria-selected', 'true');
+      } else {
+        row.classList.remove('row-selected');
+        row.removeAttribute('aria-selected');
+      }
+    });
+    selectedIndex = index;
+    if (index >= 0 && list[index]) {
+      // 'nearest' scrolls only as far as needed to bring the row into view.
+      list[index].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }
+
+  function setHint(visible) {
+    var hint = document.getElementById('table-mode-hint');
+    if (hint) hint.hidden = !visible;
+  }
+
+  function enterTableMode(list) {
+    tableMode = true;
+    setHint(true);
+    highlight(list, 0);
+  }
+
+  function exitTableMode(list) {
+    tableMode = false;
+    setHint(false);
+    highlight(list, -1);
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (isInteractive(e.target)) return;
+
+    if (e.key === 'Enter') {
+      var list = tableRows();
+      if (list.length === 0) return;      // nothing to navigate: leave Enter alone
+      e.preventDefault();
+      if (e.repeat) return;               // holding Enter must not flicker the mode
+      if (tableMode) { exitTableMode(list); } else { enterTableMode(list); }
+      return;
+    }
+
+    if (tableMode) {
+      var rowsNow = tableRows();
+      if (rowsNow.length === 0) return;
+      e.preventDefault();                 // arrows move the selection, not the page
+      var step = e.key === 'ArrowDown' ? 1 : -1;
+      var target = Math.min(Math.max(selectedIndex + step, 0), rowsNow.length - 1);
+      if (target !== selectedIndex) highlight(rowsNow, target);
+      return;
+    }
+
+    var select = document.getElementById('nozzle-select');
+    if (!select) return;
+    var options = Array.prototype.slice.call(select.options).filter(function (o) { return o.value; });
+    if (options.length === 0) return;
+
+    var currentIndex = options.findIndex(function (o) { return o.selected; });
+    var nextIndex;
+    if (e.key === 'ArrowUp') {
+      nextIndex = currentIndex < 0 ? 0 : Math.min(currentIndex + 1, options.length - 1);
+    } else {
+      nextIndex = currentIndex < 0 ? 0 : Math.max(currentIndex - 1, 0);
+    }
+    if (nextIndex === currentIndex) return;
+
+    e.preventDefault();
+    select.value = options[nextIndex].value;
+    select.dispatchEvent(new Event('change'));
+  });
+})();
 </script>
 {% endblock %}

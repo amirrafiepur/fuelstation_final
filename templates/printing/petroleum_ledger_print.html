@@ -11,6 +11,30 @@
 
 {% block report_body %}
 {% if rows %}
+<table class="print-table print-summary">
+  <thead>
+    <tr><th colspan="6" style="text-align:center;">مجموع اطلاعات</th></tr>
+    <tr>
+      <th>مجموع خرید</th>
+      <th>مجموع سرک</th>
+      <th>مجموع آزمایش</th>
+      <th>مجموع فروش</th>
+      <th>مجموع کسری</th>
+      <th>مجموع آزمایش</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="numeric">{{ totals.total_purchase|num }}</td>
+      <td class="numeric">{{ totals.total_overage|num }}</td>
+      <td class="numeric">{{ totals.total_test_received|num }}</td>
+      <td class="numeric">{{ totals.total_sales|num }}</td>
+      <td class="numeric">{{ totals.total_shortage|num }}</td>
+      <td class="numeric">{{ totals.total_test_dispatched|num }}</td>
+    </tr>
+  </tbody>
+</table>
+
 <table class="print-table">
   <thead>
     <tr>

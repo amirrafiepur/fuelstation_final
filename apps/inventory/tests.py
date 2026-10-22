@@ -383,7 +383,7 @@ class TanksSectionUiReworkTests(_TestCase):
         # date control). Within the purchase/inventory form itself, only
         # the CSRF token and the one real editable field should be
         # <input> elements -- the 7 locked values must not be.
-        form_html = content.split('<form method="post">', 1)[1].split("</form>", 1)[0]
+        form_html = content.split('<form method="post" data-enter-next>', 1)[1].split("</form>", 1)[0]
         self.assertEqual(form_html.count("<input"), 2)  # csrf token + actual_inventory
 
     def test_editing_an_existing_entry_still_shows_correct_locked_values(self):

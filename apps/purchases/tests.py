@@ -288,7 +288,10 @@ class PurchaseEntryEnterKeyNavigationTests(_TestCase):
         """The CSRF token is also an <input>; it must not become "the
         first field" in the Enter-navigation order."""
         content = self._get().content.decode()
-        self.assertIn('input:not([type="hidden"])', content)
+        # Now handled by the shared script (partials/_enter_next_field.html):
+        # hidden inputs are in its list of non-fields, and the form opts in.
+        self.assertIn("var NOT_FIELDS = ['hidden'", content)
+        self.assertIn('id="purchase-form" data-enter-next', content)
 
     def test_fields_appear_in_the_required_order_in_the_markup(self):
         """شماره ی بارنامه -> شماره ی نفتکش -> مقدار -> نرخ, in that

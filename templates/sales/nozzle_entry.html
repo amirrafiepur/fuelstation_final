@@ -17,7 +17,7 @@
     </div>
   {% endif %}
 
-  <form method="post" id="nozzle-form">
+  <form method="post" id="nozzle-form" data-enter-next>
     {% csrf_token %}
     {% if show_negative_warning %}<input type="hidden" name="confirm_negative_meter" value="1">{% endif %}
 

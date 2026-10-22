@@ -328,7 +328,7 @@ class PreviousMeterSuggestionHttpTests(_TestCase):
             {"previous_meter": "0", "new_meter": "150", "test": "0", "sales_rate": "1200"},
         )
         resp = self.client.get("/sales/invoices/2026-08-02/nozzle/1/")
-        self.assertContains(resp, 'value="150.00"')
+        self.assertContains(resp, 'value="150"')
 
     def test_prefilled_previous_meter_field_is_never_readonly(self):
         self.client.post(
@@ -363,7 +363,7 @@ class PreviousMeterSuggestionHttpTests(_TestCase):
         # Nozzle 2 has never been entered -- must stay blank on this same
         # working day, unaffected by nozzle 1's history.
         resp = self.client.get("/sales/invoices/2026-08-01/nozzle/2/")
-        self.assertNotContains(resp, 'value="150.00"')
+        self.assertNotContains(resp, 'value="150"')
 
     def test_third_day_prefills_from_second_days_new_meter(self):
         self.client.post(
@@ -375,7 +375,7 @@ class PreviousMeterSuggestionHttpTests(_TestCase):
             {"previous_meter": "150", "new_meter": "300", "test": "0", "sales_rate": "1200"},
         )
         resp = self.client.get("/sales/invoices/2026-08-03/nozzle/1/")
-        self.assertContains(resp, 'value="300.00"')
+        self.assertContains(resp, 'value="300"')
 
 
 class NozzleEntryOrderTests(_TestCase):

@@ -98,10 +98,17 @@ class NewInvoiceShortcutStructureTests(NewInvoiceShortcutBase):
 @unittest.skipUnless(NODE, "Node.js with the jsdom package is not installed (optional dev-only check)")
 class NewInvoiceShortcutBehaviourTests(NewInvoiceShortcutBase):
     def test_keyboard_shortcut_behaves_as_specified(self):
+        from apps.workday.models import DailyWorkingDay
+        wd = DailyWorkingDay.objects.create(date=datetime.date.today())
+        for tank in (self.regular, self.super):          # real rows, so table navigation has something to walk
+            PurchaseInvoice.objects.create(working_day=wd, tank=tank, quantity=1000, purchase_rate=1200,
+                                           program_number="1", tanker_number="T")
         list_html = self.list_html()
+        self.assertIn("1,000", list_html)
         href = list_html.split("data-new-invoice-link", 1)[0].rsplit('<a href="', 1)[1].split('"', 1)[0]
         form_html = self.client.get(href).content.decode()
         other_html = self.client.get("/").content.decode()
+        PurchaseInvoice.objects.all().delete()          # (invoices protect their tanks from deletion)
         Tank.objects.all().delete()
         no_tanks_html = self.list_html()
 

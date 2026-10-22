@@ -163,6 +163,8 @@
     });
   </script>
   {% endif %}
+  {% include "partials/_enter_next_field.html" %}
+  {% include "partials/_table_row_navigation.html" %}
 
   <main class="{% if user.is_authenticated %}app-main{% endif %}">
     {% if messages %}

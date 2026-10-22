@@ -67,7 +67,8 @@ const press = (p, k, target, extra) => key(p, k, target, extra);
     p.reset(); p.clicks.length = 0;
 
     // ---- keys that are NOT plus
-    const notPlusPrevented = ['=', '-', '*', '1', '0', 'Add', 'Enter', 'Escape', 'Tab', ' ', 'a', 'F2',
+    // (Enter is deliberately absent: on a page with tables it now toggles table navigation.)
+    const notPlusPrevented = ['=', '-', '*', '1', '0', 'Add', 'Escape', 'Tab', ' ', 'a', 'F2',
       'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Backspace', 'Delete'].map((k) => press(p, k)).some(Boolean);
     check('other keys: never prevented and never open a form', !notPlusPrevented && p.clicks.length === 0);
     press(p, '=', null, { shiftKey: true, code: 'Equal' });
@@ -117,6 +118,16 @@ const press = (p, k, target, extra) => key(p, k, target, extra);
     await sleep(1700);
     press(p, '+', null, { shiftKey: true });
     check('re-arm: still works after the safety timeout (navigation that never completed)', p.clicks.length === 1);
+
+    // ---- table navigation (Enter) and "+" coexist
+    p.reset(); p.clicks.length = 0;
+    check('coexist: Enter toggles table navigation on this page (first row highlighted)',
+      press(p, 'Enter') && doc.querySelectorAll('tr.row-selected').length >= 1);
+    press(p, '+', null, { shiftKey: true });
+    check('coexist: "+" still opens the new-invoice form while table navigation is active', p.clicks.length === 1);
+    press(p, 'Enter');
+    check('coexist: Enter again leaves table navigation', doc.querySelectorAll('tr.row-selected').length === 0);
+    p.reset(); p.clicks.length = 0;
 
     // ---- the existing Escape shortcut (base.html) still works and "+" does not disturb it
     let backCalls = 0;

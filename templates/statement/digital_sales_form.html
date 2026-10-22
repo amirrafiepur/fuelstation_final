@@ -9,7 +9,7 @@
     {{ entry.year }}/{{ entry.month }}
   </p>
 
-  <form method="post">
+  <form method="post" data-enter-next>
     {% csrf_token %}
     <div style="margin-bottom: 1rem;">
       <label class="form-label">{{ form.digital_sales.label }}</label>

@@ -11,6 +11,7 @@ it can never accidentally become a hard rejection.
 
 from django import forms
 
+from apps.core.display import trim_trailing_zeros
 from apps.core.jalali import JalaliDateField
 
 from .models import NozzleSale
@@ -40,6 +41,19 @@ class NozzleSaleForm(forms.ModelForm):
             "test": "تست",
             "sales_rate": "نرخ فروش",
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Display only: the "کنتور قبلی" value shown in the form -- whether
+        # pre-filled from the nozzle's last new meter or loaded from an
+        # existing record -- drops a pointless ".00" tail (1334572.00 ->
+        # 1334572), like every table in the app. A genuine fractional value
+        # is kept (100.50 -> 100.5). The stored Decimal is never touched,
+        # and the submitted string parses to exactly the same Decimal, so
+        # saving and every calculation are unaffected.
+        shown = self.initial.get("previous_meter")
+        if shown is not None:
+            self.initial["previous_meter"] = trim_trailing_zeros(shown)
 
     def has_negative_meter_movement(self) -> bool:
         """True when New Meter < Previous Meter -- the view uses this to

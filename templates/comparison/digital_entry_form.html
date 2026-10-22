@@ -9,7 +9,7 @@
     {{ entry.year }}/{{ entry.month }}
   </p>
 
-  <form method="post">
+  <form method="post" data-enter-next>
     {% csrf_token %}
     {% for field in form %}
     <div style="margin-bottom: 1rem;">

@@ -14,7 +14,7 @@
       {% endif %}
     </div>
 
-    <form method="post">
+    <form method="post" data-enter-next>
       {% csrf_token %}
       <div class="form-group">
         <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>

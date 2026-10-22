@@ -44,7 +44,7 @@
     <div class="form-input form-input--locked numeric">{{ test_return|num }}</div>
   </div>
 
-  <form method="post">
+  <form method="post" data-enter-next>
     {% csrf_token %}
     <div class="form-group">
       <label class="form-label" for="{{ form.actual_inventory.id_for_label }}">{{ form.actual_inventory.label }}</label>

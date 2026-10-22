@@ -5,7 +5,7 @@
 <div class="panel" style="max-width: 480px; margin: 0 auto;">
   <h2 class="panel__title">{% if editing %}ویرایش پلمپ{% else %}ثبت پلمپ جدید{% endif %}</h2>
 
-  <form method="post">
+  <form method="post" data-enter-next>
     {% csrf_token %}
     <div class="form-group">
       <label class="form-label" for="{{ form.nozzle.id_for_label }}">{{ form.nozzle.label }}</label>

@@ -24,7 +24,7 @@ function load(file) {
       Object.defineProperty(window, 'innerHeight', { value: VIEWPORT });
       Object.defineProperty(window, 'scrollY', { get: () => window.__scrollY });
       const proto = window.Element.prototype;
-      const rowIndex = (el) => Array.prototype.indexOf.call(el.parentNode.children, el);
+      const rowIndex = (el) => Array.prototype.indexOf.call(window.document.querySelectorAll('tbody tr'), el);
       proto.getBoundingClientRect = function () {
         if (this.tagName === 'TR' && this.parentNode.tagName === 'TBODY') {
           const top = TABLE_TOP + rowIndex(this) * ROW_H - window.__scrollY;

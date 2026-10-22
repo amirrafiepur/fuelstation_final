@@ -85,14 +85,13 @@
     {% endif %}
   {% endif %}
 </div>
-{% include "reports/_table_row_navigation.html" %}
 <script>
 document.addEventListener('DOMContentLoaded', function () { JalaliCalendar.bindNavInputs(); });
 
 // Keyboard navigation (no mouse needed), two modes toggled by Enter -- the
 // table mode (Enter, blue row highlight, ArrowUp/Down between rows,
 // auto-scroll, Enter again to leave) is the shared
-// reports/_table_row_navigation.html; this page adds only the default
+// partials/_table_row_navigation.html; this page adds only the default
 // nozzle mode:
 //
 //   Nozzle mode (default): ArrowUp -> next nozzle, ArrowDown -> previous

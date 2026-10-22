@@ -10,7 +10,7 @@
     در غیر این صورت مقدار پیش‌فرض صفر در نظر گرفته می‌شود.
   </p>
 
-  <form method="post">
+  <form method="post" data-enter-next>
     {% csrf_token %}
     <div class="form-group">
       <label class="form-label" for="{{ form.opening_quantity.id_for_label }}">{{ form.opening_quantity.label }}</label>

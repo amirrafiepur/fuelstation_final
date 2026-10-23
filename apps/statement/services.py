@@ -26,6 +26,11 @@ from .models import StatementEntry
 TWO_PLACES = Decimal("0.01")
 
 
+#: "لیتراژ غیرمجاز" is displayed only when "پورسانت" reaches this value; below
+#: it the fuel is considered authorized and 0 is shown (calculation untouched).
+UNAUTHORIZED_DISPLAY_COMMISSION_THRESHOLD = Decimal("45")
+
+
 def build_statement_rows(year: int, month: int):
     """
     One row per tank/product for the selected Jalali year/month. Always
@@ -97,6 +102,16 @@ def build_statement_rows(year: int, month: int):
         # کسری غیرمجاز = کسری کل − کسری مجاز
         unauthorized_shortage = (total_shortage - allowed_shortage).quantize(TWO_PLACES)
 
+        # DISPLAY rule only -- the calculation above is unchanged. Below the
+        # commission threshold the shortage counts as authorized, so the
+        # statement (screen and PDF) shows 0 for کسری غیرمجاز instead of the
+        # calculated figure. The comparison uses the commission exactly as
+        # it is shown (two decimals), so what the reader sees is consistent.
+        unauthorized_shortage_shown = (
+            unauthorized_shortage if commission >= UNAUTHORIZED_DISPLAY_COMMISSION_THRESHOLD
+            else Decimal("0.00")
+        )
+
         entry, _ = StatementEntry.objects.get_or_create(tank=tank, year=year, month=month)
 
         digital_sales_difference = None
@@ -122,6 +137,7 @@ def build_statement_rows(year: int, month: int):
             "commission": commission,
             "allowed_shortage": allowed_shortage,
             "unauthorized_shortage": unauthorized_shortage,
+            "unauthorized_shortage_shown": unauthorized_shortage_shown,
             "entry": entry,
             "digital_sales": entry.digital_sales,
             "digital_sales_difference": digital_sales_difference,

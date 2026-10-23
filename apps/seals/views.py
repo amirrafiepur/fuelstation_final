@@ -15,6 +15,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.workday import services as workday_services
 
+from . import services as seal_services
 from .forms import NozzleSealForm
 from .models import NozzleSeal
 
@@ -39,9 +40,8 @@ def seal_list(request):
     if request.GET.get("end_date"):
         end_date = datetime.date.fromisoformat(request.GET.get("end_date"))
 
-    seals = NozzleSeal.objects.select_related("nozzle__tank__product").filter(
-        date__gte=start_date, date__lte=end_date
-    ).order_by("-date")
+    # Same query as the PDF (apps/seals/services.py): by nozzle number, then newest first.
+    seals = seal_services.seals_in_range(start_date, end_date)
 
     return render(
         request, "seals/seal_list.html",

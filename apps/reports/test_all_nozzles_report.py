@@ -56,6 +56,20 @@ EXPECTED_06 = {1: (300, 1, 299, 388700)}
 TOTALS_06 = (300, 1, 299, 388700)
 
 FIELDS = ("total_operation", "total_test", "total_mechanical_sales", "total_amount")
+
+# Main-table column layout: شماره نازل | کنتور اول ماه | کنتور آخر ماه | جمع فروش مکانیکی | جمع آزمایش | جمع کارکرد
+# (no جمع مبلغ کل column -- that total lives in the summary strip only).
+FIRST_LAST_05 = {1: (0, 2500), 2: (500, 900), 19: (0, 450), 26: (100, 160)}      # (first previous, last new)
+FIRST_LAST_06 = {1: (2500, 2800)}
+
+
+def expected_row(number, month_data, first_last):
+    """The six cells a nozzle's row must show, worked from the hand data above."""
+    op, test, sales, _amount = month_data.get(number, (0, 0, 0, 0))
+    first, last = first_last.get(number, (None, None))
+    dash = "—"
+    return [str(number), dash if first is None else fmt(first), dash if last is None else fmt(last),
+            fmt(sales), fmt(test), fmt(op)]
 TOTAL_KEYS = ("operation", "test", "mechanical-sales", "amount")
 
 
@@ -187,16 +201,16 @@ class AllNozzlesScreenTests(AllNozzlesBase):
         self.assertEqual([r[0] for r in rows], [str(n) for n in range(1, 27)])
         for r in rows:
             number = int(r[0])
-            expected = EXPECTED_05.get(number, (0, 0, 0, 0))
-            self.assertEqual(tuple(to_int(c) for c in r[1:]), expected, f"nozzle {number}")
-            self.assertEqual(len(r), 5)
+            self.assertEqual(r, expected_row(number, EXPECTED_05, FIRST_LAST_05), f"nozzle {number}")
+            self.assertEqual(len(r), 6)
 
     def test_header_labels_and_order(self):
         html = self.page()
         head = html.split('id="all-nozzles-table"', 1)[1].split("</thead>", 1)[0]
         self.assertEqual(re.findall(r"<th[^>]*>([^<]*)</th>", head),
-                         ["شماره نازل", "جمع کارکرد", "جمع آزمایش", "جمع فروش مکانیکی", "جمع مبلغ کل"])
+                         ["شماره نازل", "کنتور اول ماه", "کنتور آخر ماه", "جمع فروش مکانیکی", "جمع آزمایش", "جمع کارکرد"])
         self.assertNotIn("تاریخ", head)
+        self.assertNotIn("جمع مبلغ کل", head)                     # removed from the main table only
 
     def test_summary_labels_order_and_values(self):
         html = self.page()
@@ -209,14 +223,17 @@ class AllNozzlesScreenTests(AllNozzlesBase):
         html = self.page()
         self.assertLess(html.index('id="all-nozzles-totals"'), html.index('id="all-nozzles-table"'))
         rows = table_rows(html)
-        sums = tuple(sum(to_int(r[i]) for r in rows) for i in range(1, 5))
-        self.assertEqual(tuple(to_int(x) for x in screen_totals(html)), sums)
+        shown = tuple(to_int(x) for x in screen_totals(html))          # operation, test, sales, amount
+        # The three remaining total columns: جمع کارکرد (col 5), جمع آزمایش (4), جمع فروش مکانیکی (3).
+        self.assertEqual(shown[:3], (sum(to_int(r[5]) for r in rows), sum(to_int(r[4]) for r in rows),
+                                     sum(to_int(r[3]) for r in rows)))
+        self.assertEqual(shown[3], TOTALS_05[3])                       # مجموع مبلغ کل: summary only, unchanged
 
     def test_changing_month_or_year_changes_rows_and_summary(self):
         self.assertEqual(screen_totals(self.page(6)), tuple(fmt(x) for x in TOTALS_06))
         rows = table_rows(self.page(6))
         self.assertEqual(len(rows), 26)
-        self.assertEqual(tuple(to_int(c) for c in rows[0][1:]), EXPECTED_06[1])
+        self.assertEqual(rows[0], expected_row(1, EXPECTED_06, FIRST_LAST_06))
         self.assertEqual(screen_totals(self.page(9)), ("0", "0", "0", "0"))
         self.assertEqual(len(table_rows(self.page(9))), 26)
         self.assertEqual(screen_totals(self.page(5, 1404)), ("0", "0", "0", "0"))
@@ -262,15 +279,19 @@ class AllNozzlesPdfTests(AllNozzlesBase):
         resp, html = render_pdf_with_html(self.client, self.print_url(5))
         self.assertEqual(pdf_summary(html), tuple(fmt(x) for x in TOTALS_05))
         rows = pdf_table_rows(html)
-        self.assertEqual(tuple(to_int(c) for c in rows[18][1:]), EXPECTED_05[19])   # nozzle 19 is row 19
-        self.assertEqual(rows[18][0], "19")
+        self.assertEqual(rows[18], expected_row(19, EXPECTED_05, FIRST_LAST_05))   # nozzle 19 is row 19
+        self.assertEqual(rows[0], expected_row(1, EXPECTED_05, FIRST_LAST_05))
+        self.assertEqual(rows[2], expected_row(3, EXPECTED_05, FIRST_LAST_05))      # idle nozzle: dashes and zeros
 
     def test_pdf_headings_labels_and_structure_are_preserved(self):
         resp, html = render_pdf_with_html(self.client, self.print_url(5))
-        for needle in ("کارکرد تمام نازل‌ها", "سال 1405 — ماه 5", "جایگاه", "شماره نازل", "جمع کارکرد",
-                       "جمع آزمایش", "جمع فروش مکانیکی", "جمع مبلغ کل", "مجموع آزمایش",
+        for needle in ("کارکرد تمام نازل‌ها", "سال 1405 — ماه 5", "جایگاه", "شماره نازل", "کنتور اول ماه",
+                       "کنتور آخر ماه", "جمع کارکرد", "جمع آزمایش", "جمع فروش مکانیکی", "مجموع آزمایش",
                        "مجموع فروش مکانیکی", "مجموع مبلغ کل"):
             self.assertIn(needle, html, needle)
+        main = html.split("print-summary", 1)[1].split("</table>", 1)[1]            # everything after the summary table
+        self.assertNotIn("جمع مبلغ کل", main)                    # gone from the main table...
+        self.assertIn("مجموع مبلغ کل", html.split("</table>", 1)[0])                # ...still in the summary strip
         self.assertLess(html.index("print-summary"), html.index("شماره نازل"))
         text = pdf_text(resp.content)
         for needle in ("4,382,500", "3,389", "3,410", "شماره نازل"):

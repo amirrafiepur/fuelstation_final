@@ -81,10 +81,12 @@ def all_nozzles_monthly_summary(year: int, month: int):
     the selected JALALI year/month (converted to a Gregorian range with
     jalali_month_bounds(), like every other monthly report):
 
-        total_operation         جمع کارکرد
-        total_test              جمع آزمایش
+        first_meter             کنتور اول ماه  (کنتور قبلی on the first recorded day)
+        last_meter              کنتور آخر ماه  (کنتور جدید on the last recorded day)
         total_mechanical_sales  جمع فروش مکانیکی
-        total_amount            جمع مبلغ کل
+        total_test              جمع آزمایش
+        total_operation         جمع کارکرد
+        total_amount            جمع مبلغ کل   (feeds the summary strip; not a table column)
 
     Reuses NozzleSale's existing operation / test / mechanical_sales /
     total_amount values verbatim for every sale in the month -- no new
@@ -96,10 +98,15 @@ def all_nozzles_monthly_summary(year: int, month: int):
 
     first_day, last_day = jalali_month_bounds(year, month)
 
+    # Chronological (date, then id) so the first and last record of each
+    # nozzle are its first and last RECORDED working day of the month --
+    # never an assumed 1st / last calendar day.
     sales = NozzleSale.objects.filter(
         sales_invoice__working_day__date__gte=first_day,
         sales_invoice__working_day__date__lte=last_day,
-    ).select_related("nozzle")
+    ).select_related("nozzle", "sales_invoice__working_day").order_by(
+        "sales_invoice__working_day__date", "id"
+    )
 
     zero = Decimal("0")
     by_number = {}
@@ -107,8 +114,11 @@ def all_nozzles_monthly_summary(year: int, month: int):
         acc = by_number.setdefault(
             sale.nozzle.number,
             {"total_operation": zero, "total_test": zero,
-             "total_mechanical_sales": zero, "total_amount": zero},
+             "total_mechanical_sales": zero, "total_amount": zero,
+             # کنتور اول ماه: کنتور قبلی of the nozzle's first recorded day.
+             "first_meter": sale.previous_meter, "last_meter": None},
         )
+        acc["last_meter"] = sale.new_meter          # ends as کنتور جدید of the last recorded day
         acc["total_operation"] += sale.operation
         acc["total_test"] += sale.test
         acc["total_mechanical_sales"] += sale.mechanical_sales
@@ -123,6 +133,10 @@ def all_nozzles_monthly_summary(year: int, month: int):
             "total_test": acc["total_test"] if acc else zero,
             "total_mechanical_sales": acc["total_mechanical_sales"] if acc else zero,
             "total_amount": acc["total_amount"] if acc else zero,
+            # Counter readings; None (shown as "—") for a nozzle with no
+            # sales record that month -- a missing record is not a reading of 0.
+            "first_meter": acc["first_meter"] if acc else None,
+            "last_meter": acc["last_meter"] if acc else None,
         })
     return rows
 

@@ -28,20 +28,22 @@
   <thead>
     <tr>
       <th>شماره نازل</th>
-      <th>جمع کارکرد</th>
-      <th>جمع آزمایش</th>
+      <th>کنتور اول ماه</th>
+      <th>کنتور آخر ماه</th>
       <th>جمع فروش مکانیکی</th>
-      <th>جمع مبلغ کل</th>
+      <th>جمع آزمایش</th>
+      <th>جمع کارکرد</th>
     </tr>
   </thead>
   <tbody>
     {% for row in rows %}
     <tr>
       <td class="numeric">{{ row.nozzle_number }}</td>
-      <td class="numeric">{{ row.total_operation|num }}</td>
-      <td class="numeric">{{ row.total_test|num }}</td>
+      <td class="numeric">{{ row.first_meter|default_if_none:"—"|num }}</td>
+      <td class="numeric">{{ row.last_meter|default_if_none:"—"|num }}</td>
       <td class="numeric">{{ row.total_mechanical_sales|num }}</td>
-      <td class="numeric">{{ row.total_amount|num }}</td>
+      <td class="numeric">{{ row.total_test|num }}</td>
+      <td class="numeric">{{ row.total_operation|num }}</td>
     </tr>
     {% endfor %}
   </tbody>

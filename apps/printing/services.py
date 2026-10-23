@@ -239,11 +239,9 @@ def build_seals_context(start_date, end_date) -> dict:
     filter, same ordering, no recalculation (there is nothing to
     calculate; this section has no derived values).
     """
-    from apps.seals.models import NozzleSeal
+    from apps.seals import services as seal_services
 
-    seals = NozzleSeal.objects.select_related("nozzle__tank__product").filter(
-        date__gte=start_date, date__lte=end_date
-    ).order_by("-date")
+    seals = seal_services.seals_in_range(start_date, end_date)
 
     return {
         "station": get_station_metadata(),

@@ -51,20 +51,22 @@
     <thead>
       <tr style="border-bottom: 2px solid var(--color-border); text-align: right;">
         <th style="padding: 0.4rem;">شماره نازل</th>
-        <th style="padding: 0.4rem;">جمع کارکرد</th>
-        <th style="padding: 0.4rem;">جمع آزمایش</th>
+        <th style="padding: 0.4rem;">کنتور اول ماه</th>
+        <th style="padding: 0.4rem;">کنتور آخر ماه</th>
         <th style="padding: 0.4rem;">جمع فروش مکانیکی</th>
-        <th style="padding: 0.4rem;">جمع مبلغ کل</th>
+        <th style="padding: 0.4rem;">جمع آزمایش</th>
+        <th style="padding: 0.4rem;">جمع کارکرد</th>
       </tr>
     </thead>
     <tbody>
       {% for row in rows %}
       <tr style="border-bottom: 1px solid var(--color-border);">
         <td style="padding: 0.4rem;" class="numeric">{{ row.nozzle_number }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_operation|num }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.first_meter|default_if_none:"—"|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.last_meter|default_if_none:"—"|num }}</td>
         <td style="padding: 0.4rem;" class="numeric">{{ row.total_mechanical_sales|num }}</td>
-        <td style="padding: 0.4rem;" class="numeric">{{ row.total_amount|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_test|num }}</td>
+        <td style="padding: 0.4rem;" class="numeric">{{ row.total_operation|num }}</td>
       </tr>
       {% endfor %}
     </tbody>

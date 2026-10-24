@@ -7,7 +7,7 @@ import datetime
 from decimal import Decimal
 
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 
 from apps.core.jalali import current_jalali_year_month, jalali_month_bounds
 from apps.stations.models import Nozzle, Product, Tank
@@ -67,23 +67,31 @@ def nozzle_performance_ledger(request, nozzle_id=None):
 @login_required
 def all_nozzles_performance(request):
     """
-    لیست اطلاعات فروش: a monthly, nozzle-based report. The operator picks
-    a JALALI year/month (same selector pattern as واریزی‌ها and صورت وضعیت
-    ماهانه); the table always has the 26 nozzle rows, with a summary strip
-    of column totals above it. A deliberately separate view/URL from
-    nozzle_performance_ledger() (the per-nozzle daily ledger).
+    لیست اطلاعات فروش: a monthly, nozzle-based report for one fuel type. The
+    operator picks a JALALI year/month and the fuel (بنزین معمولی / سوپر --
+    the same tank selector the petroleum reports use); the table lists only
+    that fuel's nozzles, with a summary strip of column totals above it.
+    Regular and Super nozzles are never mixed. A deliberately separate
+    view/URL from nozzle_performance_ledger() (the per-nozzle daily ledger).
     """
     today = workday_services.get_today()
     default_year, default_month = current_jalali_year_month(today)
     year = int(request.GET.get("year", default_year))
     month = int(request.GET.get("month", default_month))
 
-    rows = report_services.all_nozzles_monthly_summary(year, month)
+    tanks = list(Tank.objects.select_related("product").order_by("product__name"))
+    if request.GET.get("tank_id"):
+        selected_tank = get_object_or_404(Tank.objects.select_related("product"), pk=int(request.GET["tank_id"]))
+    else:
+        selected_tank = tanks[0] if tanks else None          # Regular sorts first
+
+    rows = report_services.all_nozzles_monthly_summary(year, month, selected_tank) if selected_tank else []
     totals = report_services.all_nozzles_monthly_totals(rows)
 
     return render(
         request, "reports/all_nozzles_performance.html",
-        {"rows": rows, "totals": totals, "year": year, "month": month},
+        {"rows": rows, "totals": totals, "year": year, "month": month,
+         "tanks": tanks, "selected_tank": selected_tank},
     )
 
 

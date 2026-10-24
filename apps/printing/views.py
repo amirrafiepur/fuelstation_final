@@ -13,7 +13,8 @@ import datetime
 from pathlib import Path
 
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
+from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 
 from apps.stations.models import Nozzle, Tank
@@ -63,9 +64,15 @@ def nozzle_ledger_print(request, nozzle_id):
 def all_nozzles_performance_print(request):
     year = int(request.GET["year"])
     month = int(request.GET["month"])
+    if request.GET.get("tank_id"):
+        tank = get_object_or_404(Tank.objects.select_related("product"), pk=int(request.GET["tank_id"]))
+    else:                                    # same default as the screen: the first fuel (Regular)
+        tank = Tank.objects.select_related("product").order_by("product__name").first()
+        if tank is None:
+            raise Http404("No tank configured.")
 
-    context = printing_services.build_all_nozzles_performance_context(year, month)
-    filename = f"all-nozzles-{year}-{month:02d}.pdf"
+    context = printing_services.build_all_nozzles_performance_context(year, month, tank)
+    filename = f"all-nozzles-{tank.product.name.lower()}-{year}-{month:02d}.pdf"
     return _render_pdf_response("printing/all_nozzles_performance_print.html", context, filename)
 
 

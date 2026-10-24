@@ -1,14 +1,14 @@
 /*
  * Behaviour tests for the keyboard navigation on "لیست اطلاعات فروش".
  *
- * Usage: node all_nozzles_keyboard.js <rendered-page.html>
+ * Usage: node all_nozzles_keyboard.js <rendered-page.html> <expected-row-count>
  * Needs the `jsdom` npm package (resolved via NODE_PATH). Prints one JSON
  * object {check name: true | false}; run by test_all_nozzles_report.py,
  * which skips itself when node/jsdom are not installed. The REAL rendered
  * page (its real inline scripts) is driven with real KeyboardEvents;
  * layout/scrolling is modelled by _dom.js.
  */
-const { VIEWPORT, load, key } = require('./_dom');
+const { VIEWPORT, ROW_H, TABLE_TOP, load, key } = require('./_dom');
 
 const ROWS = '#all-nozzles-table tbody tr';
 const selectedRows = (p) => Array.from(p.doc.querySelectorAll(ROWS + '.row-selected'));
@@ -31,7 +31,7 @@ try {
   const p = load(process.argv[2]);
   const doc = p.doc;
   const rows = doc.querySelectorAll(ROWS).length;
-  check('fixture: exactly 26 nozzle rows', rows === 26);
+  check('fixture: exactly the selected fuel\'s nozzle rows (' + process.argv[3] + ')', rows === Number(process.argv[3]));
   check('fixture: no nozzle selector on this page', !doc.getElementById('nozzle-select'));
 
   // ---- default state: normal keyboard behaviour, nothing highlighted
@@ -42,8 +42,8 @@ try {
 
   // ---- Enter activates table navigation
   let prevented = key(p, 'Enter');
-  check('enter: highlights the FIRST row (nozzle 1)', selectedIndex(p) === 0 &&
-    selectedRows(p)[0].cells[0].textContent.trim() === '1');
+  check('enter: highlights the FIRST row', selectedIndex(p) === 0 &&
+    selectedRows(p)[0] === doc.querySelector(ROWS));
   check('enter: Enter itself was consumed', prevented);
   check('enter: mode hint is shown', hintVisible(p));
   check('enter: highlighted row exposes aria-selected', selectedRows(p)[0].getAttribute('aria-selected') === 'true');
@@ -52,8 +52,8 @@ try {
   prevented = key(p, 'ArrowDown');
   check('mode: ArrowDown moves to the next row', selectedIndex(p) === 1 && prevented);
   key(p, 'ArrowDown'); key(p, 'ArrowDown');
-  check('mode: three downs from row 0 -> row 3 (nozzle 4)', selectedIndex(p) === 3 &&
-    selectedRows(p)[0].cells[0].textContent.trim() === '4');
+  check('mode: three downs from row 0 -> row 3', selectedIndex(p) === 3 &&
+    selectedRows(p)[0] === doc.querySelectorAll(ROWS)[3]);
   key(p, 'ArrowUp');
   check('mode: ArrowUp moves to the previous row', selectedIndex(p) === 2);
   check('mode: only one row is ever highlighted', selectedRows(p).length === 1);
@@ -70,15 +70,15 @@ try {
     key(p, 'ArrowDown');
     if (selectedIndex(p) !== i || !inViewport(p)) allVisible = false;
   }
-  check('scroll: selected row stays inside the viewport on every step down (26 rows)', allVisible);
-  check('scroll: the page really scrolled to follow the selection', p.window.__scrollY > y0);
+  check('scroll: selected row stays inside the viewport on every step down (all rows)', allVisible);
+  const needsScroll = TABLE_TOP + rows * ROW_H > VIEWPORT;      // a short table (e.g. 6 Super nozzles) fits on screen
+  if (needsScroll) check('scroll: the page really scrolled to follow the selection', p.window.__scrollY > y0);
   check('scroll: scrolling requested with block "nearest" on the selected row',
     p.window.__scrollCalls.length > 0 &&
     p.window.__scrollCalls.every((c) => c.opts && c.opts.block === 'nearest') &&
     p.window.__scrollCalls[p.window.__scrollCalls.length - 1].index === rows - 1);
   prevented = key(p, 'ArrowDown');
-  check('mode: cannot move below the last row (nozzle 26)', selectedIndex(p) === rows - 1 && prevented &&
-    selectedRows(p)[0].cells[0].textContent.trim() === '26');
+  check('mode: cannot move below the last row', selectedIndex(p) === rows - 1 && prevented);
 
   const yBottom = p.window.__scrollY;
   allVisible = true;
@@ -87,7 +87,7 @@ try {
     if (selectedIndex(p) !== i || !inViewport(p)) allVisible = false;
   }
   check('scroll: selected row stays inside the viewport on every step up', allVisible);
-  check('scroll: the page scrolled back up', p.window.__scrollY < yBottom);
+  if (needsScroll) check('scroll: the page scrolled back up', p.window.__scrollY < yBottom);
 
   // ---- Enter again exits
   key(p, 'ArrowDown'); key(p, 'ArrowDown');

@@ -70,18 +70,19 @@ def build_nozzle_ledger_context(nozzle, start_date, end_date) -> dict:
     }
 
 
-def build_all_nozzles_performance_context(year: int, month: int) -> dict:
+def build_all_nozzles_performance_context(year: int, month: int, tank) -> dict:
     """
     Reuses reports.services.all_nozzles_monthly_summary() and
-    all_nozzles_monthly_totals() verbatim -- the printed 26 nozzle rows and
-    the summary strip are exactly what the on-screen لیست اطلاعات فروش
-    shows for that JALALI year/month.
+    all_nozzles_monthly_totals() verbatim for the selected fuel (`tank`) --
+    the printed nozzle rows and the summary strip are exactly what the
+    on-screen لیست اطلاعات فروش shows for that JALALI year/month and fuel.
     """
-    rows = report_services.all_nozzles_monthly_summary(year, month)
+    rows = report_services.all_nozzles_monthly_summary(year, month, tank)
     return {
         "station": get_station_metadata(),
         "year": year,
         "month": month,
+        "tank": tank,
         "rows": rows,
         "totals": report_services.all_nozzles_monthly_totals(rows),
     }

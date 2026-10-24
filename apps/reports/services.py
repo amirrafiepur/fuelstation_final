@@ -69,17 +69,16 @@ def nozzle_performance_ledger(nozzle: Nozzle, start_date, end_date):
     return rows
 
 
-#: "لیست اطلاعات فروش" always lists nozzles 1..26 -- one row per nozzle,
-#: whether or not that nozzle sold anything in the selected month.
-ALL_NOZZLES_REPORT_NUMBERS = range(1, 27)
-
-
-def all_nozzles_monthly_summary(year: int, month: int):
+def all_nozzles_monthly_summary(year: int, month: int, tank):
     """
-    "لیست اطلاعات فروش": a monthly, nozzle-based report. Exactly 26 rows,
-    one per nozzle number 1..26, each holding that nozzle's totals over
-    the selected JALALI year/month (converted to a Gregorian range with
-    jalali_month_bounds(), like every other monthly report):
+    "لیست اطلاعات فروش": a monthly, nozzle-based report for ONE fuel type.
+    `tank` selects the fuel (Regular or Super); the report lists exactly the
+    nozzles that belong to that tank -- from the data model, in nozzle-number
+    order (the seeded station gives Regular: 1-18, 25, 26 = 20 nozzles, and
+    Super: 19-24 = 6 nozzles) -- and never a nozzle of the other fuel. Each
+    row holds that nozzle's figures over the selected JALALI year/month
+    (converted to a Gregorian range with jalali_month_bounds(), like every
+    other monthly report):
 
         first_meter             کنتور اول ماه  (کنتور قبلی on the first recorded day)
         last_meter              کنتور آخر ماه  (کنتور جدید on the last recorded day)
@@ -90,9 +89,8 @@ def all_nozzles_monthly_summary(year: int, month: int):
 
     Reuses NozzleSale's existing operation / test / mechanical_sales /
     total_amount values verbatim for every sale in the month -- no new
-    formulas. A nozzle with no sales that month (or one that does not
-    exist yet) still gets its row, with zeros: the list is always the
-    full 1..26, never a fabricated gap or a shorter table.
+    formulas. A nozzle of this fuel with no sales that month still gets its
+    row, with zeros and "—" counters.
     """
     from apps.core.jalali import jalali_month_bounds
 
@@ -102,6 +100,7 @@ def all_nozzles_monthly_summary(year: int, month: int):
     # nozzle are its first and last RECORDED working day of the month --
     # never an assumed 1st / last calendar day.
     sales = NozzleSale.objects.filter(
+        nozzle__tank=tank,
         sales_invoice__working_day__date__gte=first_day,
         sales_invoice__working_day__date__lte=last_day,
     ).select_related("nozzle", "sales_invoice__working_day").order_by(
@@ -125,7 +124,8 @@ def all_nozzles_monthly_summary(year: int, month: int):
         acc["total_amount"] += sale.total_amount
 
     rows = []
-    for number in ALL_NOZZLES_REPORT_NUMBERS:
+    for nozzle in Nozzle.objects.filter(tank=tank).order_by("number"):
+        number = nozzle.number
         acc = by_number.get(number)
         rows.append({
             "nozzle_number": number,
@@ -144,7 +144,8 @@ def all_nozzles_monthly_summary(year: int, month: int):
 def all_nozzles_monthly_totals(rows):
     """
     The monthly summary strip above the table: each total is the sum of
-    that column over exactly the rows passed in (the 26 rows displayed),
+    that column over exactly the rows passed in (the selected fuel's
+    nozzles, as displayed),
     so the summary can never disagree with the table beneath it.
     """
     zero = Decimal("0")

@@ -6,21 +6,21 @@
 <div class="panel">
   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
     <h2 class="panel__title" style="margin:0;">لیست اطلاعات فروش</h2>
-    <a href="{% url 'printing:all_nozzles_performance_print' %}?year={{ year }}&month={{ month }}"
+    <a href="{% url 'printing:all_nozzles_performance_print' %}?year={{ year }}&month={{ month }}{% if selected_tank %}&tank_id={{ selected_tank.id }}{% endif %}"
        target="_blank" class="btn" style="display:inline-block; width:auto; padding:0.4rem 0.9rem; font-size:0.85rem;">
       چاپ / PDF
     </a>
   </div>
 
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
     <div>
       <label class="form-label">سال</label>
       <input type="number" class="form-input numeric" value="{{ year }}"
-             onchange="window.location = '?year=' + this.value + '&month={{ month }}'">
+             onchange="window.location = '?year=' + this.value + '&month={{ month }}&tank_id={{ selected_tank.id }}'">
     </div>
     <div>
       <label class="form-label">ماه</label>
-      <select class="form-input" onchange="window.location = '?year={{ year }}&month=' + this.value">
+      <select class="form-input" onchange="window.location = '?year={{ year }}&month=' + this.value + '&tank_id={{ selected_tank.id }}'">
         <option value="1" {% if month == 1 %}selected{% endif %}>۱</option>
         <option value="2" {% if month == 2 %}selected{% endif %}>۲</option>
         <option value="3" {% if month == 3 %}selected{% endif %}>۳</option>
@@ -33,6 +33,15 @@
         <option value="10" {% if month == 10 %}selected{% endif %}>۱۰</option>
         <option value="11" {% if month == 11 %}selected{% endif %}>۱۱</option>
         <option value="12" {% if month == 12 %}selected{% endif %}>۱۲</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label">نوع سوخت</label>
+      <select class="form-input" id="fuel-select"
+              onchange="window.location = '?year={{ year }}&month={{ month }}&tank_id=' + this.value">
+        {% for tank in tanks %}
+        <option value="{{ tank.id }}" {% if selected_tank and tank.id == selected_tank.id %}selected{% endif %}>{{ tank.product.name|persian_product }}</option>
+        {% endfor %}
       </select>
     </div>
   </div>

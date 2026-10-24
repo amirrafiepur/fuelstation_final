@@ -2,7 +2,7 @@
 {% load display_tags %}
 {% block title %}کارکرد تمام نازل‌ها{% endblock %}
 {% block report_title %}کارکرد تمام نازل‌ها{% endblock %}
-{% block report_period %}سال {{ year }} — ماه {{ month }}{% endblock %}
+{% block report_period %}{{ tank.product.name|persian_product }} — سال {{ year }} — ماه {{ month }}{% endblock %}
 
 {% block report_body %}
 <table class="print-table print-summary">

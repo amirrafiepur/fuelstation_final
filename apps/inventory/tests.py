@@ -49,9 +49,13 @@ class TankInventoryChainTests(TestCase):
         )
 
     def test_day_one_uses_opening_inventory_and_matches_spec_example(self):
-        # Spec §60 worked example:
-        # Opening Inventory = 1000, Purchase = 100, Test = 5, Sales = 200,
-        # Actual Inventory = 905 -> Total=1105, Theoretical=905, Shortage=0, Overage=0
+        # Spec §60 worked example, CORRECTED for the test liters.
+        # Opening Inventory = 1000, Purchase = 100, Test = 5, Sales = 200 (operation 205).
+        # The original example expected Theoretical = 905 (Total 1105 - Sales 200), which
+        # added the test back into the total but never took it out again. The confirmed
+        # rule is Theoretical = Total - (Sales + Test) = 1105 - 205 = 900: the tank really
+        # loses only the 200 sold (the 5 of test goes back in), so a perfect day has
+        # Actual = 1000 + 100 - 200 = 900 -> Total=1105, Theoretical=900, Shortage=0, Overage=0
         OpeningInventory.objects.create(
             tank=self.tank, opening_quantity=Decimal("1000"), effective_month=datetime.date(2026, 7, 23)
         )
@@ -63,14 +67,19 @@ class TankInventoryChainTests(TestCase):
         self._make_nozzle_sale(self.day1, previous_meter=Decimal("0"), new_meter=Decimal("205"), test=Decimal("5"))
 
         TankInventory.objects.create(
-            working_day=self.day1, tank=self.tank, actual_inventory=Decimal("905")
+            working_day=self.day1, tank=self.tank, actual_inventory=Decimal("900")
         )
 
         total, theoretical, shortage, overage = services.compute_tank_inventory(self.tank, self.day1)
         self.assertEqual(total, Decimal("1105"))
-        self.assertEqual(theoretical, Decimal("905"))
+        self.assertEqual(theoretical, Decimal("900"))
         self.assertEqual(shortage, Decimal("0"))
         self.assertEqual(overage, Decimal("0"))
+
+        # The old spec example's actual (905) is now 5 above the corrected theoretical: a real overage.
+        TankInventory.objects.filter(working_day=self.day1, tank=self.tank).update(actual_inventory=Decimal("905"))
+        _, theoretical, shortage, overage = services.compute_tank_inventory(self.tank, self.day1)
+        self.assertEqual((theoretical, shortage, overage), (Decimal("900"), Decimal("0"), Decimal("5")))
 
     def test_day_two_uses_day_ones_actual_and_overage_not_its_own(self):
         # Day 1: no opening inventory row (defaults to 0), no purchase/sales,
@@ -350,8 +359,8 @@ class TanksSectionUiReworkTests(_TestCase):
         self.assertEqual(positions, sorted(positions))
 
     def test_entry_form_shows_correct_values_matching_spec_example(self):
-        # Spec §60 worked example: Opening=1000, Purchase=100, Test=5,
-        # Sales=200 -> Total=1105, Theoretical=905.
+        # Spec §60 worked example (corrected): Opening=1000, Purchase=100, Test=5,
+        # Sales=200 -> Total=1105, Theoretical = 1105 - (200 + 5) = 900.
         self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/opening/", {"opening_quantity": "1000"})
         working_day = DailyWorkingDay.objects.get(date=self.day1)
         PurchaseInvoice.objects.create(
@@ -372,7 +381,8 @@ class TanksSectionUiReworkTests(_TestCase):
         self.assertIn("5", content)     # بازگشت از آزمایش / آزمایش
         self.assertIn("1,105", content)  # جمع کل
         self.assertIn("200", content)   # فروش روزانه
-        self.assertIn("905", content)   # موجودی غیرواقعی
+        self.assertRegex(content, r"موجودی غیرواقعی</div>\s*<div[^>]*>\s*900\s*</div>")   # موجودی غیرواقعی
+        self.assertNotIn("905", content)
 
     def test_first_seven_fields_are_not_form_inputs(self):
         self.client.post(f"/inventory/{self.day1}/tank/{self.tank.id}/opening/", {"opening_quantity": "0"})

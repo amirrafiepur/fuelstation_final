@@ -798,8 +798,9 @@ class PetroleumLedgerReworkTests(TestCase):
             working_day=wd, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"),
         )
         self._sell(wd, Decimal("0"), Decimal("205"), test=Decimal("5"))
-        # Total=1105, Sales(mech)=200, Theoretical=905, Actual=910 -> overage(سرک)=5
-        TankInventory.objects.create(tank=self.tank, working_day=wd, actual_inventory=Decimal("910"))
+        # Total=1105, Sales(mech)=200, Test=5, Theoretical = 1105 - (200 + 5) = 900,
+        # Actual=905 -> overage(سرک)=5
+        TankInventory.objects.create(tank=self.tank, working_day=wd, actual_inventory=Decimal("905"))
 
         from apps.reports import services as report_services
         rows = report_services.petroleum_inventory_operations_ledger(
@@ -823,8 +824,9 @@ class PetroleumLedgerReworkTests(TestCase):
             working_day=wd, tank=self.tank, quantity=Decimal("100"), purchase_rate=Decimal("1200"),
         )
         self._sell(wd, Decimal("0"), Decimal("205"), test=Decimal("5"))
-        # Total=1105, mech sales=200, Theoretical=905, Actual=900 -> shortage(کسری)=5
-        TankInventory.objects.create(tank=self.tank, working_day=wd, actual_inventory=Decimal("900"))
+        # Total=1105, mech sales=200, Test=5, Theoretical = 1105 - (200 + 5) = 900,
+        # Actual=895 -> shortage(کسری)=5
+        TankInventory.objects.create(tank=self.tank, working_day=wd, actual_inventory=Decimal("895"))
 
         from apps.reports import services as report_services
         rows = report_services.petroleum_inventory_operations_ledger(

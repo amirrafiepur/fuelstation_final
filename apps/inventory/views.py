@@ -194,7 +194,9 @@ def actual_inventory_entry(request, date, tank_id):
     test_return = inventory_services.get_test_return(tank, working_day)
     daily_sales = inventory_services.get_daily_sales(tank, working_day)
     total_inventory = previous_balance + daily_purchase + test_return + previous_overage
-    theoretical_inventory = total_inventory - daily_sales
+    theoretical_inventory = inventory_services.compute_theoretical_inventory(
+        total_inventory, daily_sales, test_return
+    )
 
     if request.method == "POST":
         form = ActualInventoryForm(request.POST, instance=existing)

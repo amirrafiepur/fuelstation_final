@@ -95,10 +95,32 @@ def get_previous_balance_and_overage(tank, working_day):
     return previous_balance, Decimal("0")
 
 
+def compute_theoretical_inventory(total_inventory, daily_sales, test_return):
+    """
+    موجودی تئوری = موجودی کل − (فروش مکانیکی + آزمایش).
+
+    Everything that passed through the nozzle meters that day -- the
+    OPERATION -- is mechanical sales plus test (operation = sales + test).
+    The test liters go back into the tank, and the total inventory already
+    counts them as returned (جمع کل includes "بازگشت از آزمایش"), so they
+    must also be counted as having gone out through the meter; otherwise the
+    test would be added once and never subtracted, and a day with a test of
+    T would show T too little in the tank (a shortage of T on a perfect day).
+    Net effect on the tank = −sales: the test cancels.
+
+    One definition, shared by compute_tank_inventory() and the daily
+    actual-inventory entry page so the two can never disagree.
+    """
+    return total_inventory - (daily_sales + test_return)
+
+
 def compute_tank_inventory(tank, working_day):
     """
     Computes this working day's (total_inventory, theoretical_inventory,
-    shortage, overage) for `tank`, using only:
+    shortage, overage) for `tank`, where
+        total_inventory       = previous actual + purchases + test + previous overage
+        theoretical_inventory = total_inventory - (mechanical sales + test)
+    (see compute_theoretical_inventory() for why the test is subtracted), using only:
       - the previous working day's carry-forward values (never this
         day's own results), and
       - this day's own source data (purchases, tests, sales).
@@ -127,7 +149,9 @@ def compute_tank_inventory(tank, working_day):
     daily_sales = get_daily_sales(tank, working_day)
 
     total_inventory = previous_balance + daily_purchase + test_return + previous_overage
-    theoretical_inventory = total_inventory - daily_sales
+    theoretical_inventory = compute_theoretical_inventory(
+        total_inventory, daily_sales, test_return
+    )
     actual_inventory = inventory_row.actual_inventory
 
     if theoretical_inventory > actual_inventory:

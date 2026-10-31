@@ -236,6 +236,65 @@ def nozzle_performance_monthly(nozzle: Nozzle, year: int, month: int):
     }
 
 
+def _is_first_working_day_of_jalali_month(day) -> bool:
+    """True when no earlier DailyWorkingDay exists in the same JALALI month as `day`
+    (so `day` is that month's first working day -- not necessarily its 1st calendar day)."""
+    from apps.core.jalali import current_jalali_year_month, jalali_month_bounds
+
+    year, month = current_jalali_year_month(day)
+    first_day, _ = jalali_month_bounds(year, month)
+    return not DailyWorkingDay.objects.filter(date__gte=first_day, date__lt=day).exists()
+
+
+def received_cumulative_carried_in(tank: Tank, before_date):
+    """
+    The running "جمع کل رسیده" this tank had reached at its last recorded
+    working day strictly before `before_date`, or None if the tank has no
+    earlier recorded day (i.e. `before_date` is, or precedes, its first
+    working month).
+
+    It is the same running total the ledger itself builds day by day --
+    موجودی افتتاحیه on the tank's first recorded day, then every day's
+    جمع روزانه‌ی رسیده (purchases + test + سرک) added in order -- and so it
+    equals "the last جمع کل رسیده recorded in the previous month".
+
+    Computed in ONE chronological pass that carries the previous day's
+    actual inventory and overage forward. (compute_tank_inventory() would
+    give the same figures but recurses through the whole history for every
+    day, which is far too slow to repeat for each month view.) The per-day
+    arithmetic below is exactly compute_tank_inventory()'s; a test asserts
+    the two agree on every day so they can never drift apart.
+    """
+    from apps.purchases import services as purchase_services
+    from apps.sales import services as sales_services
+
+    rows = list(
+        TankInventory.objects.filter(tank=tank, working_day__date__lt=before_date)
+        .select_related("working_day")
+        .order_by("working_day__date")
+    )
+    if not rows:
+        return None
+
+    previous_balance, previous_overage = inventory_services.get_previous_balance_and_overage(
+        tank, rows[0].working_day
+    )
+    cumulative = previous_balance                        # day zero = موجودی افتتاحیه
+    for row in rows:
+        wd = row.working_day
+        purchase = purchase_services.get_daily_purchase_total(tank, wd)
+        test_return = inventory_services.get_test_return(tank, wd)
+        sales = sales_services.get_daily_sales(tank, wd)
+
+        total_inventory = previous_balance + purchase + test_return + previous_overage
+        theoretical = total_inventory - sales
+        overage = row.actual_inventory - theoretical if row.actual_inventory > theoretical else Decimal("0")
+
+        cumulative += purchase + test_return + overage   # جمع روزانه‌ی رسیده
+        previous_balance, previous_overage = row.actual_inventory, overage
+    return cumulative
+
+
 def petroleum_inventory_operations_ledger(tank: Tank, start_date, end_date):
     """
     "دفتر موجودی و عملیات": per tank, one row per working day from
@@ -309,6 +368,21 @@ def petroleum_inventory_operations_ledger(tank: Tank, start_date, end_date):
     from 0 for display purposes" convention. جمع کل خارج شده is
     untouched by this -- the task that introduced it only concerns جمع کل
     رسیده.
+
+    MONTH CARRY-FORWARD. From the second working month onward the running
+    جمع کل رسیده continues across months instead of restarting: on a
+    JALALI month's FIRST working day,
+
+        جمع کل رسیده = آخرین جمع کل رسیده ثبت‌شده در ماه قبل + جمع روزانه‌ی رسیده همان روز
+
+    and the following days of the month accumulate as usual. The previous
+    month's last figure itself includes موجودی افتتاحیه (added on the tank's
+    first working day), so the opening balance is carried through every
+    month. This applies when the selected range starts on a month's first
+    working day (the normal month view, and the default range) via
+    received_cumulative_carried_in(); a range that merely runs across a
+    month boundary was already continuous. The first working month, and a
+    range starting mid-month, keep their existing behaviour exactly.
     """
     from apps.sales import services as sales_services
     from apps.purchases import services as purchase_services
@@ -317,9 +391,19 @@ def petroleum_inventory_operations_ledger(tank: Tank, start_date, end_date):
     cumulative_received = None
     cumulative_dispatched = None
 
-    for wd in DailyWorkingDay.objects.filter(
+    working_days = DailyWorkingDay.objects.filter(
         date__gte=start_date, date__lte=end_date
-    ).order_by("date"):
+    ).order_by("date")
+
+    # Month carry-forward (see the docstring): a range that starts on a
+    # month's first working day, after the tank's first month, begins from
+    # the previous month's last جمع کل رسیده rather than from 0.
+    carried_in_received = None
+    first_working_day = working_days.first()
+    if first_working_day is not None and _is_first_working_day_of_jalali_month(first_working_day.date):
+        carried_in_received = received_cumulative_carried_in(tank, first_working_day.date)
+
+    for wd in working_days:
         purchases = list(
             PurchaseInvoice.objects.filter(tank=tank, working_day=wd).order_by("id")
         )
@@ -352,7 +436,9 @@ def petroleum_inventory_operations_ledger(tank: Tank, start_date, end_date):
             # value has never been persisted anywhere (see that note).
             daily_dispatched = daily_sales + test_return + shortage
 
-            if cumulative_received is None:
+            if cumulative_received is None and carried_in_received is not None:
+                cumulative_received = carried_in_received + daily_received
+            elif cumulative_received is None:
                 is_tanks_first_working_day = not TankInventory.objects.filter(
                     tank=tank, working_day__date__lt=wd.date
                 ).exists()

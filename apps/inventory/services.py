@@ -118,7 +118,7 @@ def compute_tank_inventory(tank, working_day):
     """
     Computes this working day's (total_inventory, theoretical_inventory,
     shortage, overage) for `tank`, where
-        total_inventory       = previous actual + purchases + test + previous overage
+        total_inventory       = previous actual + purchases + test
         theoretical_inventory = total_inventory - (mechanical sales + test)
     (see compute_theoretical_inventory() for why the test is subtracted), using only:
       - the previous working day's carry-forward values (never this
@@ -140,15 +140,17 @@ def compute_tank_inventory(tank, working_day):
             "cannot compute derived inventory values."
         ) from exc
 
-    previous_balance, previous_overage = get_previous_balance_and_overage(
-        tank, working_day
-    )
+    # The previous day's سرک is NOT added again here: previous_balance is that
+    # day's actual inventory, which already contains it. Adding it a second
+    # time inflated today's total/theoretical inventory and produced a false
+    # کسری equal to yesterday's سرک.
+    previous_balance, _ = get_previous_balance_and_overage(tank, working_day)
 
     daily_purchase = get_daily_purchase_total(tank, working_day)
     test_return = get_test_return(tank, working_day)
     daily_sales = get_daily_sales(tank, working_day)
 
-    total_inventory = previous_balance + daily_purchase + test_return + previous_overage
+    total_inventory = previous_balance + daily_purchase + test_return
     theoretical_inventory = compute_theoretical_inventory(
         total_inventory, daily_sales, test_return
     )

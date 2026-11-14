@@ -92,21 +92,43 @@ class TankInventoryChainTests(TestCase):
         )
         self.assertEqual(overage1, Decimal("10"))
 
-        # Day 2: no purchase/sales either. Previous Balance = 10 (day1 actual),
-        # Previous Overage = 10 (day1's own overage, carried forward).
-        # Total = 10 + 0 + 0 + 10 = 20. If Actual = 20 -> Theoretical = 20 ->
-        # shortage=overage=0, proving day 2 did NOT use its own (zero) overage
-        # circularly but correctly carried day 1's.
+        # Day 2: no purchase/sales either. Previous Balance = 10 (day1 actual,
+        # which ALREADY contains day 1's overage). Day 1's overage is not added
+        # again: Total = 10 + 0 + 0 = 10. If Actual = 10 -> Theoretical = 10 ->
+        # shortage=overage=0: yesterday's سرک creates no کسری today.
         TankInventory.objects.create(
-            working_day=self.day2, tank=self.tank, actual_inventory=Decimal("20")
+            working_day=self.day2, tank=self.tank, actual_inventory=Decimal("10")
         )
         total2, theoretical2, shortage2, overage2 = services.compute_tank_inventory(
             self.tank, self.day2
         )
-        self.assertEqual(total2, Decimal("20"))
-        self.assertEqual(theoretical2, Decimal("20"))
+        self.assertEqual(total2, Decimal("10"))
+        self.assertEqual(theoretical2, Decimal("10"))
         self.assertEqual(shortage2, Decimal("0"))
         self.assertEqual(overage2, Decimal("0"))
+
+    def test_yesterdays_overage_does_not_create_a_shortage_today(self):
+        """Yesterday's 14 سرک must not make today's کسری 14 larger (nor today's جمع روزانه خارج شده)."""
+        TankInventory.objects.create(
+            working_day=self.day1, tank=self.tank, actual_inventory=Decimal("114")
+        )
+        # Day 1: opening 0, nothing sold, actual 114 -> overage 114; use 14 via a smaller case below.
+        TankInventory.objects.filter(working_day=self.day1, tank=self.tank).update(actual_inventory=Decimal("14"))
+        _, _, shortage1, overage1 = services.compute_tank_inventory(self.tank, self.day1)
+        self.assertEqual((shortage1, overage1), (Decimal("0"), Decimal("14")))
+
+        # Day 2: the tank really holds what day 1 ended with (14), nothing sold or bought.
+        TankInventory.objects.create(
+            working_day=self.day2, tank=self.tank, actual_inventory=Decimal("14")
+        )
+        total2, theoretical2, shortage2, overage2 = services.compute_tank_inventory(self.tank, self.day2)
+        self.assertEqual((total2, theoretical2), (Decimal("14"), Decimal("14")))
+        self.assertEqual((shortage2, overage2), (Decimal("0"), Decimal("0")))   # was shortage 14 before the fix
+
+        # A genuine shortage of 3 on day 2 is reported as exactly 3 (not 17).
+        TankInventory.objects.filter(working_day=self.day2, tank=self.tank).update(actual_inventory=Decimal("11"))
+        _, _, shortage2, overage2 = services.compute_tank_inventory(self.tank, self.day2)
+        self.assertEqual((shortage2, overage2), (Decimal("3"), Decimal("0")))
 
     def test_missing_actual_inventory_raises(self):
         with self.assertRaises(ValueError):
@@ -236,12 +258,12 @@ class InventoryWorkflowHttpTests(_TestCase):
         )
         self.client.post(
             f"/inventory/{self.day2}/tank/{self.tank.id}/actual/",
-            {"actual_inventory": "20"},  # prev balance=10 + prev overage=10 = 20
+            {"actual_inventory": "10"},  # prev balance=10 (already includes day 1's overage) -> nothing added again
         )
         total, theoretical, shortage, overage = services.compute_tank_inventory(
             self.tank, DailyWorkingDay.objects.get(date=self.day2)
         )
-        self.assertEqual(total, Decimal("20"))
+        self.assertEqual(total, Decimal("10"))
         self.assertEqual(shortage, Decimal("0"))
         self.assertEqual(overage, Decimal("0"))
 

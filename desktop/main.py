@@ -42,7 +42,7 @@ def _project_root() -> Path:
 if str(_project_root()) not in sys.path:
     sys.path.insert(0, str(_project_root()))
 
-logger = logging.getLogger("fuelstation")
+logger = logging.getLogger("fuelstation") 
 
 # Number of automatic pre-migration database copies that are kept.
 BACKUPS_TO_KEEP = 10

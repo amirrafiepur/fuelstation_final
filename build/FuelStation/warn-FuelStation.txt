@@ -14,7 +14,7 @@ Types of import:
 IMPORTANT: Do NOT post this list to the issue-tracker. Use it as a basis for
             tracking down the missing module yourself. Thanks!
 
-missing module named pyimod02_importers - imported by D:\Programming\Django_projects\140JahanPour_Final_Project\fuelstation_final\venv\Lib\site-packages\PyInstaller\hooks\rthooks\pyi_rth_pkgutil.py (delayed), D:\Programming\Django_projects\140JahanPour_Final_Project\fuelstation_final\venv\Lib\site-packages\PyInstaller\hooks\rthooks\pyi_rth_pkgres.py (delayed)
+missing module named pyimod02_importers - imported by D:\Programming\Django_projects\Fuel_station_Project\Jahani_Pour_fuelstation\venv\Lib\site-packages\PyInstaller\hooks\rthooks\pyi_rth_pkgutil.py (delayed), D:\Programming\Django_projects\Fuel_station_Project\Jahani_Pour_fuelstation\venv\Lib\site-packages\PyInstaller\hooks\rthooks\pyi_rth_pkgres.py (delayed)
 missing module named typing_extensions - imported by fontTools.ttLib.ttFont (conditional), packaging.version (conditional), packaging.specifiers (conditional), setuptools.command.build (conditional), packaging.direct_url (conditional), packaging.pylock (conditional)
 missing module named _scproxy - imported by urllib.request (conditional)
 missing module named termios - imported by django.utils.autoreload (optional), getpass (optional), tty (top-level)

@@ -77,18 +77,32 @@ class ComparisonServiceTests(TestCase):
             & {"digital_sales", "tanker_capacity"}
         )
 
-    def test_digital_totals_are_plain_sums_of_entered_values_only(self):
+    def test_digital_totals_are_exactly_what_the_user_entered_never_calculated(self):
         entry = DigitalEntry.objects.create(
             tank=self.regular_tank, year=1405, month=5,
             beginning_inventory=Decimal("100"), received_quantity=Decimal("50"),
-            test_return=Decimal("2"), overage=Decimal("1"),
-            sales_quantity=Decimal("40"), shortage=Decimal("3"), ending_inventory=Decimal("110"),
+            test_return=Decimal("2"), overage=Decimal("1"), received_total=Decimal("999"),
+            sales_quantity=Decimal("40"), dispatched_test_return=Decimal("7"), shortage=Decimal("3"),
+            ending_inventory=Decimal("110"), dispatched_total=Decimal("888"),
         )
         rows = build_digital_rows(1405, 5)
         row = next(r for r in rows if r["tank"] == self.regular_tank)
-        self.assertEqual(row["received_total"], Decimal("153"))  # 100+50+2+1
-        self.assertEqual(row["dispatched_total"], Decimal("155"))  # 40+2+3+110
+        self.assertEqual(row["received_total"], Decimal("999"))      # NOT 100+50+2+1
+        self.assertEqual(row["dispatched_total"], Decimal("888"))    # NOT 40+7+3+110
+        self.assertEqual(row["test_return"], Decimal("2"))
+        self.assertEqual(row["dispatched_test_return"], Decimal("7"))  # independent of the first آزمایش
         self.assertEqual(row["entry"].id, entry.id)
+
+    def test_changing_a_column_never_changes_the_entered_totals(self):
+        entry = DigitalEntry.objects.create(
+            tank=self.regular_tank, year=1405, month=5,
+            received_total=Decimal("10"), dispatched_total=Decimal("20"),
+        )
+        entry.beginning_inventory = Decimal("500")
+        entry.sales_quantity = Decimal("70")
+        entry.save()
+        entry.refresh_from_db()
+        self.assertEqual((entry.received_total, entry.dispatched_total), (Decimal("10"), Decimal("20")))
 
     def test_digital_values_are_never_derived_from_mechanical_data(self):
         """Creating heavy mechanical activity must not change an
@@ -162,19 +176,51 @@ class ComparisonViewTests(TestCase):
         resp = self.client.get(f"/comparison/entry/{entry.id}/edit/")
         self.assertIn("margin: 0 auto", resp.content.decode())
 
-    def test_digital_entry_edit_saves_and_redirects(self):
+    def test_digital_entry_form_has_the_ten_fields_in_the_required_order(self):
+        entry = DigitalEntry.objects.create(tank=self.tank, year=1405, month=5)
+        resp = self.client.get(f"/comparison/entry/{entry.id}/edit/")
+        self.assertEqual(list(resp.context["form"].fields), [
+            "beginning_inventory", "received_quantity", "test_return", "overage", "received_total",
+            "sales_quantity", "dispatched_test_return", "shortage", "ending_inventory", "dispatched_total",
+        ])
+        labels = [f.label for f in resp.context["form"]]
+        self.assertEqual(labels, ["موجودی اول ماه", "مقدار رسیده", "آزمایش", "سرک", "جمع کل",
+                                  "مقدار فروش", "آزمایش", "کسری", "موجودی آخر ماه", "جمع کل خارج شده"])
+        html = resp.content.decode()
+        names = [html.index(f'name="{n}"') for n in resp.context["form"].fields]
+        self.assertEqual(names, sorted(names))
+
+    def test_digital_entry_edit_saves_every_column_as_typed_and_redirects(self):
         entry = DigitalEntry.objects.create(tank=self.tank, year=1405, month=5)
         resp = self.client.post(
             f"/comparison/entry/{entry.id}/edit/",
             {
-                "beginning_inventory": "10", "received_quantity": "20", "test_return": "1",
-                "overage": "0", "sales_quantity": "15", "shortage": "0", "ending_inventory": "16",
+                "beginning_inventory": "10", "received_quantity": "20", "test_return": "1", "overage": "0",
+                "received_total": "31", "sales_quantity": "15", "dispatched_test_return": "2", "shortage": "0",
+                "ending_inventory": "16", "dispatched_total": "33",
             },
         )
         self.assertEqual(resp.status_code, 302)
         entry.refresh_from_db()
         self.assertEqual(entry.received_quantity, Decimal("20"))
         self.assertEqual(entry.ending_inventory, Decimal("16"))
+        self.assertEqual((entry.received_total, entry.dispatched_test_return, entry.dispatched_total),
+                         (Decimal("31"), Decimal("2"), Decimal("33")))   # typed values, not 31 / 1 / 33 by calculation
+
+    def test_digital_table_shows_the_entered_values(self):
+        entry = DigitalEntry.objects.create(
+            tank=self.tank, year=1405, month=5, test_return=Decimal("4"), dispatched_test_return=Decimal("6"),
+            received_total=Decimal("12345"), dispatched_total=Decimal("67890"),
+        )
+        html = self.client.get("/comparison/?year=1405&month=5").content.decode()
+        digital = html.split("فروش دیجیتال", 1)[1]
+        for shown in ("12,345", "67,890"):
+            self.assertIn(shown, digital)
+
+    def test_both_product_buttons_are_unchanged(self):
+        self.client.get("/comparison/?year=1405&month=5")
+        html = self.client.get("/comparison/?year=1405&month=5").content.decode()
+        self.assertEqual(html.count("ورود / ویرایش —"), DigitalEntry.objects.filter(year=1405, month=5).count())
 
 
 class ComparisonPrintContextTests(TestCase):

@@ -242,8 +242,8 @@ class InventoryEnterNextTests(EnterNextBase):
 # ---------------------------------------------------------------- مقایسه سیستم مکانیکی و دیجیتال
 
 class ComparisonEnterNextTests(EnterNextBase):
-    FIELDS = ["beginning_inventory", "received_quantity", "test_return", "overage",
-              "sales_quantity", "shortage", "ending_inventory"]
+    FIELDS = ["beginning_inventory", "received_quantity", "test_return", "overage", "received_total",
+              "sales_quantity", "dispatched_test_return", "shortage", "ending_inventory", "dispatched_total"]
 
     def entry_url(self):
         from apps.comparison.models import DigitalEntry
